@@ -1,0 +1,1449 @@
+#!/usr/bin/env python3
+"""
+GOGLib — managed GOG library archival.
+
+Cross-platform Python tool that wraps a backend downloader (lgogdownloader on
+Linux/macOS, gogrepoc on Windows) and adds: manifest-tracked downloads so files
+can be moved off-disk without triggering redownloads, segmented batches by
+first letter, automatic franchise-based folder organization, OST format
+priority filtering, version archiving, and interactive language-extras audit.
+
+Subcommands:
+  refresh                              Refresh backend cache + dump library JSON
+  plan [--letter X] [--game R]         Show what would be downloaded
+  sync [--letter X] [--game R]         Download new files and organize
+  process [--letter X] [--game R]      Re-run post-processing on existing
+                                       staging without re-downloading
+  audit [--review-all]                 Interactively review extras matching
+                                       suspicious language tokens
+  reorganize [--dry-run]               Move files to match current config
+  forget --letter X|--game R [--yes]   Remove matching entries from manifest
+  status                               Manifest summary
+  config [--write-default]             Show / initialize config
+
+Letter values:  num | all | a-z | a-c (range)
+
+Files (per-OS):
+  Linux/macOS:
+    ~/.config/goglib/config.json
+    ~/.config/goglib/franchises.json
+    ~/.local/share/goglib/manifest.json
+    ~/.local/share/goglib/library.json
+  Windows:
+    %APPDATA%\\goglib\\config.json
+    %APPDATA%\\goglib\\franchises.json
+    %APPDATA%\\goglib\\manifest.json
+    %APPDATA%\\goglib\\library.json
+"""
+
+import argparse
+import json
+import os
+import platform
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from datetime import datetime
+from pathlib import Path
+
+HOME = Path.home()
+IS_WINDOWS = platform.system() == "Windows"
+
+
+# ---------- per-OS paths ----------
+def _config_dir():
+    """Location of config files. Respects XDG on Linux/macOS, APPDATA on Windows."""
+    if IS_WINDOWS:
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            return Path(appdata) / "goglib"
+        return HOME / "AppData" / "Roaming" / "goglib"
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    return (Path(xdg) if xdg else HOME / ".config") / "goglib"
+
+
+def _state_dir():
+    """Location of manifest and library snapshot. XDG_DATA on Linux, APPDATA on Windows."""
+    if IS_WINDOWS:
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            return Path(appdata) / "goglib"
+        return HOME / "AppData" / "Roaming" / "goglib"
+    xdg = os.environ.get("XDG_DATA_HOME")
+    return (Path(xdg) if xdg else HOME / ".local" / "share") / "goglib"
+
+
+def _temp_dir():
+    """Location for transient files (blacklist, report). Auto-cleaned by OS."""
+    return Path(tempfile.gettempdir())
+
+
+CONFIG_PATH = _config_dir() / "config.json"
+FRANCHISES_PATH = _config_dir() / "franchises.json"
+MANIFEST_PATH = _state_dir() / "manifest.json"
+LIBRARY_JSON = _state_dir() / "library.json"
+LOG_PATH = _state_dir() / "sync.log"
+BLACKLIST_TMP = _temp_dir() / "goglib-blacklist.txt"
+REPORT_TMP = _temp_dir() / "goglib-report.log"
+
+
+def _default_library_root():
+    """Sensible default download location for new installs."""
+    if IS_WINDOWS:
+        # Windows users typically want games on a non-system drive; default to
+        # Documents and let them edit config to point elsewhere.
+        return HOME / "Documents" / "GOGLibrary"
+    return HOME / "GOGLibrary"
+
+
+def _default_staging_root():
+    if IS_WINDOWS:
+        return HOME / "Documents" / "GOGStaging"
+    return HOME / "GOGStaging"
+
+DEFAULTS = {
+    # Backend: 'auto' picks lgogdownloader on Linux/macOS, gogrepoc on Windows.
+    # Override to force a specific one (e.g. you have lgogdownloader running
+    # under WSL on a Windows machine and prefer it over gogrepoc).
+    "backend": "auto",
+    "staging_dir": str(_default_staging_root()),
+    "library_dir": str(_default_library_root()),
+    "versions_dir": str(_default_library_root() / "_versions"),
+    "platform": "w+l",
+    "language": "en+ro+ja",
+    "include": "all",
+    "exclude": "",
+    "threads": 4,
+    "filename_strip_prefix": "setup_",
+    "filename_pattern": "{stripped}",
+    "dir_replace_spaces": True,
+    "standalone_folder": "Standalone",
+    # Auto-blacklist of extras by filename language tokens — DANGEROUS.
+    # Use the `audit` subcommand instead for interactive cleanup.
+    "extras_lang_filter": False,
+    "extra_blacklist_patterns": [],
+    # DLC files go into <base>/dlc/ flat, with slug prefix on filename
+    "flatten_dlc_folder": True,
+    # When same OST is shipped in multiple formats, keep only the highest-
+    # priority one. Earlier entries win. Set to [] to disable filtering.
+    "ost_format_priority": ["flac", "wav", "mp3"],
+}
+
+LANG_FILENAME_TOKENS = {
+    "en": ["en", "eng", "english"],
+    "de": ["de", "deu", "ger", "german"],
+    "fr": ["fr", "fra", "fre", "french"],
+    "pl": ["pl", "pol", "polish"],
+    "ru": ["ru", "rus", "russian"],
+    "zh": ["zh", "cn", "chi", "chinese"],
+    "cs": ["cs", "cz", "cze", "czech"],
+    "es": ["es", "spa", "spanish"],
+    "hu": ["hu", "hun", "hungarian"],
+    "it": ["it", "ita", "italian"],
+    "ja": ["ja", "jp", "jpn", "japanese"],
+    "tr": ["tr", "tur", "turkish"],
+    "pt": ["pt", "por", "portuguese"],
+    "ko": ["ko", "kor", "korean"],
+    "nl": ["nl", "nld", "dut", "dutch"],
+    "sv": ["sv", "swe", "swedish"],
+    "no": ["no", "nor", "norwegian"],
+    "da": ["da", "dan", "danish"],
+    "fi": ["fi", "fin", "finnish"],
+    "br": ["br", "ptbr", "pt_br", "pt-br", "brazilian"],
+    "ro": ["ro", "rum", "ron", "romanian"],
+    "uk": ["uk", "ukr", "ukrainian"],
+    "bg": ["bg", "bul", "bulgarian"],
+    "sk": ["sk", "slo", "slovak"],
+    "ar": ["ar", "ara", "arabic"],
+}
+
+AUDIT_EXTS = ("zip", "pdf", "exe", "jpg", "png", "jpeg", "mp3", "flac",
+              "wav", "ogg", "mp4", "avi", "mov", "tar", "gz", "7z",
+              "rar", "bin", "iso")
+
+# OST detection: filename contains one of these markers (between _ or .)
+OST_MARKERS = ("ost", "soundtrack", "ostr", "music")
+
+
+# ---------- helpers ----------
+def log(msg):
+    line = f"[{datetime.now().isoformat(timespec='seconds')}] {msg}"
+    print(line)
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(LOG_PATH, "a") as f:
+        f.write(line + "\n")
+
+
+def fmt_size(n):
+    n = float(n)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if n < 1024:
+            return f"{n:.2f} {unit}"
+        n /= 1024
+    return f"{n:.2f} PiB"
+
+
+def parse_size(v):
+    if v is None or v == "":
+        return 0
+    if isinstance(v, (int, float)):
+        return int(v)
+    s = str(v).strip()
+    try:
+        return int(float(s))
+    except ValueError:
+        return 0
+
+
+def safe_dir(s, replace_spaces=True):
+    s = re.sub(r'[<>:"/\\|?*\x00]', "_", s).strip().rstrip(".")
+    if replace_spaces:
+        s = re.sub(r"\s+", "_", s)
+    return s
+
+
+def mkey(slug, fname):
+    return f"{slug}/{fname}"
+
+
+# ---------- config / franchises / manifest ----------
+def load_config():
+    cfg = dict(DEFAULTS)
+    if CONFIG_PATH.exists():
+        with open(CONFIG_PATH) as f:
+            cfg.update(json.load(f))
+    return cfg
+
+
+def write_default_config():
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(DEFAULTS, f, indent=2)
+    print(f"Wrote default config to {CONFIG_PATH}")
+    if not FRANCHISES_PATH.exists():
+        with open(FRANCHISES_PATH, "w") as f:
+            json.dump({
+                "_comment": "Map slug -> {franchise, year, title}. "
+                            "Year and title are optional. Title overrides "
+                            "GOG's default title for folder naming. "
+                            "Entries starting with _ are ignored.",
+            }, f, indent=2)
+        print(f"Wrote example franchise mapping to {FRANCHISES_PATH}")
+
+
+def load_franchises():
+    if not FRANCHISES_PATH.exists():
+        return {}
+    with open(FRANCHISES_PATH) as f:
+        data = json.load(f)
+    return {k: v for k, v in data.items() if not k.startswith("_")}
+
+
+def load_manifest():
+    if MANIFEST_PATH.exists():
+        with open(MANIFEST_PATH) as f:
+            return json.load(f)
+    return {"version": 4, "files": {}}
+
+
+def save_manifest(m):
+    MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = MANIFEST_PATH.with_suffix(".json.tmp")
+    with open(tmp, "w") as f:
+        json.dump(m, f, indent=2, sort_keys=True)
+    tmp.replace(MANIFEST_PATH)
+
+
+# ---------- library ----------
+def load_library():
+    if not LIBRARY_JSON.exists():
+        sys.exit(f"No library JSON at {LIBRARY_JSON}. Run: goglib refresh")
+    with open(LIBRARY_JSON) as f:
+        return json.load(f)
+
+
+def index_library(library):
+    return {g["gamename"]: g for g in library if "gamename" in g}
+
+
+# ---------- filtering ----------
+# Articles to strip when computing a game's "first letter" for sorting/filtering.
+# Mirrors common library-cataloging convention. Sorted longest-first so multi-
+# word entries match before single-word ones.
+SORT_ARTICLES = ("the ", "an ", "a ")
+
+
+def title_first_char(title_or_slug):
+    """Return the lowercase character used to bucket a game for letter-filtering.
+    
+    Strips leading articles ('The', 'A', 'An') and falls back through any
+    leading non-alphanumeric noise (punctuation, whitespace) to find the first
+    real character. Returns '0-9' for digits, the lowercase letter otherwise,
+    or '?' if nothing usable found.
+    """
+    if not title_or_slug:
+        return "?"
+    s = title_or_slug.lower().lstrip()
+    # Strip leading article(s). One pass suffices since articles never stack.
+    for art in SORT_ARTICLES:
+        if s.startswith(art):
+            s = s[len(art):].lstrip()
+            break
+    # Skip leading non-alphanumeric noise (e.g. quotation marks, punctuation)
+    for ch in s:
+        if ch.isdigit():
+            return "0-9"
+        if ch.isalpha():
+            return ch
+    return "?"
+
+
+def title_for_filter(game):
+    """Title used by letter-filter and status histogram. Falls back to slug."""
+    return game.get("title") or game.get("gamename") or ""
+
+
+def letter_to_regex(letter):
+    """Validates the letter input. Returned regex isn't used directly anymore
+    (filter_games now compares against title_first_char) but we keep the
+    function for input validation and for `all`/`num` shortcuts."""
+    letter = letter.lower()
+    if letter in ("num", "numeric", "0-9"):
+        return "0-9"
+    if letter == "all":
+        return "*"
+    if re.fullmatch(r"[a-z]", letter):
+        return letter
+    if re.fullmatch(r"[a-z]-[a-z]", letter):
+        return letter
+    sys.exit(f"Bad --letter '{letter}'. Use: num | all | a | a-c")
+
+
+def matches_letter_filter(game, letter_spec):
+    """Test if a game's first-letter (after article-stripping) falls within
+    the letter spec. letter_spec is the validated string from letter_to_regex."""
+    if letter_spec == "*":
+        return True
+    bucket = title_first_char(title_for_filter(game))
+    if letter_spec == "0-9":
+        return bucket == "0-9"
+    if len(letter_spec) == 1:
+        return bucket == letter_spec
+    if len(letter_spec) == 3 and letter_spec[1] == "-":
+        a, b = letter_spec[0], letter_spec[2]
+        return bucket != "0-9" and bucket != "?" and a <= bucket <= b
+    return False
+
+
+def filter_games(library, letter=None, game_regex=None):
+    """Apply --letter and --game filters.
+    
+    --letter buckets by display title's first letter (after stripping leading
+    'The'/'A'/'An'). So 'The Witcher' lives under 'w', 'A Plague Tale' under
+    'p' wait — under 'a' since 'A Plague Tale' has 'A' as article AND 'P'
+    as content; we strip the article so under 'p'. 'Blackwell Legacy'
+    (slug 'episode_1_the_blackwell_legacy') buckets under 'b'.
+    
+    --game still matches against the SLUG (so existing usage like
+    --game ^homm continues to work).
+    """
+    letter_spec = letter_to_regex(letter) if letter else None
+    game_re = re.compile(game_regex, re.IGNORECASE) if game_regex else None
+
+    out = []
+    for g in library:
+        if letter_spec is not None and not matches_letter_filter(g, letter_spec):
+            continue
+        if game_re is not None and not game_re.search(g.get("gamename", "")):
+            continue
+        out.append(g)
+    return out
+
+
+def expected_size_total(game):
+    total = 0
+    count = 0
+    for kind in ("installers", "patches", "extras", "languagepacks"):
+        for f in (game.get(kind) or []):
+            total += parse_size(f.get("size"))
+            count += 1
+    return total, count
+
+
+# ---------- destination resolution ----------
+def franchise_lookup(slug, franchises):
+    info = franchises.get(slug)
+    if not info:
+        return None, None, None
+    return info.get("franchise"), info.get("year"), info.get("title")
+
+
+def is_dlc(game):
+    slug = game.get("gamename")
+    basegame = game.get("gamename_basegame")
+    return bool(basegame and basegame != slug)
+
+
+def target_dir_for(game, library_index, library_root, franchises, cfg):
+    """Compute destination directory for a game (or DLC).
+    
+    For DLCs with flatten_dlc_folder=True, returns <base>/dlc/ — files will
+    be renamed with the DLC slug prefixed.
+    """
+    title = game.get("title") or game.get("gamename") or "?"
+    slug = game.get("gamename")
+    basegame = game.get("gamename_basegame")
+    dlc = is_dlc(game)
+
+    lookup_slug = basegame if dlc else slug
+    lookup_game = library_index.get(lookup_slug, game)
+    lookup_title = lookup_game.get("title") or lookup_slug
+
+    franchise, year, sort_title = franchise_lookup(lookup_slug, franchises)
+
+    title_for_folder = sort_title or lookup_title
+    if year:
+        folder_name = f"{year}_{title_for_folder}"
+    else:
+        folder_name = title_for_folder
+
+    rs = bool(cfg.get("dir_replace_spaces", True))
+    standalone = cfg.get("standalone_folder", "Standalone")
+
+    if franchise:
+        base_dir = library_root / safe_dir(franchise, rs) / safe_dir(folder_name, rs)
+    else:
+        base_dir = library_root / standalone / safe_dir(folder_name, rs)
+
+    if dlc:
+        if cfg.get("flatten_dlc_folder", True):
+            return base_dir / "dlc"
+        return base_dir / "dlc" / safe_dir(title, rs)
+    return base_dir
+
+
+def rename_for_target(original, cfg, dlc_slug=None):
+    """Apply prefix-strip + pattern. For DLC files with flatten_dlc_folder,
+    prefix the DLC slug to avoid filename collisions across DLCs."""
+    prefix = cfg.get("filename_strip_prefix", "")
+    stripped = original
+    if prefix and stripped.startswith(prefix):
+        stripped = stripped[len(prefix):]
+    pattern = cfg.get("filename_pattern", "{stripped}")
+    name = pattern.format(stripped=stripped, original=original)
+    if dlc_slug and cfg.get("flatten_dlc_folder", True):
+        name = f"{dlc_slug}__{name}"
+    return name
+
+
+def derive_kind(rel_parent_str):
+    if rel_parent_str == "." or rel_parent_str == "":
+        return "installers", ""
+    first = rel_parent_str.split("/", 1)[0].lower()
+    if first in ("extras", "patches", "languagepacks", "language_packs", "dlc"):
+        kind_map = {"language_packs": "languagepacks"}
+        return kind_map.get(first, first), rel_parent_str
+    return "installers", rel_parent_str
+
+
+def compute_full_dest(file_info, library_index, library_root, franchises, cfg):
+    """Compute current target path for a manifest entry."""
+    slug = file_info["slug"]
+    game = library_index.get(slug)
+    if not game:
+        return None
+    target_dir = target_dir_for(game, library_index, library_root, franchises, cfg)
+    kind = file_info.get("kind", "installers")
+    sub = "" if kind == "installers" else kind
+
+    dlc_slug = slug if is_dlc(game) and cfg.get("flatten_dlc_folder", True) else None
+    new_name = rename_for_target(file_info["original_filename"], cfg, dlc_slug=dlc_slug)
+
+    if sub:
+        return target_dir / sub / new_name
+    return target_dir / new_name
+
+
+# ---------- OST format priority ----------
+def detect_ost_format(filename):
+    """Return (is_ost, format) where format is 'flac'/'wav'/'mp3'/'ogg'/None.
+    
+    Returns (False, None) if not detected as an OST file.
+    Returns (True, None) if looks like OST but format unclear (don't filter).
+    """
+    name = filename.lower()
+    # Strip extension(s) for marker check
+    base = re.sub(r"\.(zip|tar|gz|7z|rar)$", "", name)
+    base = re.sub(r"\.(zip|tar|gz|7z|rar)$", "", base)  # double strip if needed
+
+    # Must contain an OST marker as a token (between _, -, or word boundary)
+    if not re.search(r"(?:^|[_\-.])(" + "|".join(OST_MARKERS) + r")(?:[_\-.]|$)", base):
+        return False, None
+
+    # Look for format suffix or extension
+    fmt_match = re.search(r"[_\-.](flac|wav|mp3|ogg|m4a|aac)(?:[_\-.]|$)", base)
+    if fmt_match:
+        return True, fmt_match.group(1)
+
+    # File extension fallback
+    ext_match = re.search(r"\.(flac|wav|mp3|ogg|m4a|aac)$", name)
+    if ext_match:
+        return True, ext_match.group(1)
+
+    # OST detected but no format identifiable — don't filter
+    return True, None
+
+
+def build_ost_blacklist_for_game(game, priority):
+    """For each game, group OST files by format, pick highest priority,
+    and return list of regex patterns to blacklist for the others.
+    
+    Patterns target the filename as it appears under <slug>/<sub>/<filename>.
+    """
+    if not priority:
+        return []
+    extras = game.get("extras") or []
+    if not extras:
+        return []
+
+    by_format = {}  # format → list of filenames
+    unknown_ost = []  # OST detected but format unclear
+    for f in extras:
+        # 'path' in lgog JSON is usually just the bare filename. Only fall
+        # back to splitting if it has slashes. 'name' is a display label,
+        # NOT a filename.
+        path = f.get("path") or ""
+        fname = path.rsplit("/", 1)[-1] if "/" in path else path
+        if not fname:
+            continue
+        is_ost, fmt = detect_ost_format(fname)
+        if not is_ost:
+            continue
+        if fmt:
+            by_format.setdefault(fmt, []).append(fname)
+        else:
+            unknown_ost.append(fname)
+
+    if len(by_format) < 2:
+        return []  # only one format present; nothing to blacklist
+
+    # Pick the best format we have
+    best = None
+    for p in priority:
+        if p in by_format:
+            best = p
+            break
+    if best is None:
+        return []  # none of our priority formats present
+
+    # Blacklist everything not in best
+    patterns = []
+    slug = game.get("gamename", "")
+    for fmt, files in by_format.items():
+        if fmt == best:
+            continue
+        for fname in files:
+            # No leading ^ — see manifest blacklist comment above
+            patterns.append(f"{re.escape(slug)}/(.*/)?{re.escape(fname)}$")
+    return patterns
+
+
+# ---------- backend abstraction ----------
+def run(cmd, check=True, **kw):
+    print(f"$ {' '.join(cmd)}")
+    return subprocess.run(cmd, check=check, **kw)
+
+
+class LgogDownloaderBackend:
+    """Backend wrapping lgogdownloader (Linux/macOS, also runs under WSL)."""
+
+    name = "lgogdownloader"
+    binary = "lgogdownloader"
+
+    @classmethod
+    def is_available(cls):
+        return shutil.which(cls.binary) is not None
+
+    @classmethod
+    def refresh(cls, cfg):
+        run([cls.binary, "--update-cache",
+             "--platform", cfg["platform"],
+             "--language", cfg["language"]])
+
+    @classmethod
+    def dump_library(cls, cfg, out_path):
+        with open(out_path, "w") as f:
+            subprocess.run(
+                [cls.binary, "--list", "j",
+                 "--platform", cfg["platform"],
+                 "--language", cfg["language"]],
+                stdout=f, check=True)
+
+    @classmethod
+    def download(cls, cfg, game_re, blacklist_path, report_path, verbose=False):
+        args = [
+            cls.binary, "--download",
+            "--directory", cfg["staging_dir"],
+            "--game", game_re,
+            "--platform", cfg["platform"],
+            "--language", cfg["language"],
+            "--include", cfg["include"],
+            "--blacklist", str(blacklist_path),
+            "--threads", str(cfg["threads"]),
+            "--report", str(report_path),
+        ]
+        if verbose:
+            args.extend(["--verbosity", "1"])
+        if cfg.get("exclude"):
+            args.extend(["--exclude", cfg["exclude"]])
+        run(args, check=False)
+
+
+class GogRepoCBackend:
+    """Backend wrapping gogrepoc (Python; works on Windows, Linux, macOS).
+
+    Translates goglib's lgogdownloader-shaped contract to gogrepoc's CLI.
+    Output JSON format differs from lgogdownloader, so dump_library reshapes
+    it to match what the rest of goglib expects.
+
+    See: https://github.com/Yepoleb/gogrepoc
+    """
+
+    name = "gogrepoc"
+    binary = "gogrepo.py"  # may also be 'gogrepoc' depending on install
+
+    @classmethod
+    def is_available(cls):
+        for cand in ("gogrepoc", "gogrepo.py", "gogrepo"):
+            if shutil.which(cand):
+                cls.binary = cand
+                return True
+        return False
+
+    @classmethod
+    def _translate_platform(cls, platform_spec):
+        """lgog 'w+l' -> gogrepoc OS list."""
+        out = []
+        for p in re.split(r"[+,]", platform_spec.lower()):
+            p = p.strip()
+            if p in ("w", "win", "windows"):
+                out.append("windows")
+            elif p in ("l", "lin", "linux"):
+                out.append("linux")
+            elif p in ("m", "mac", "osx"):
+                out.append("mac")
+        return out or ["windows", "linux"]
+
+    @classmethod
+    def _translate_language(cls, lang_spec):
+        """lgog 'en+ro+ja' -> gogrepoc lang list."""
+        out = []
+        for p in re.split(r"[+,]", lang_spec.lower()):
+            p = p.strip()
+            if not p or p == "all":
+                continue
+            # gogrepoc uses 2-letter codes
+            out.append(p[:2])
+        return out or ["en"]
+
+    @classmethod
+    def refresh(cls, cfg):
+        plats = cls._translate_platform(cfg["platform"])
+        langs = cls._translate_language(cfg["language"])
+        args = [cls.binary, "update", "-os"] + plats + ["-lang"] + langs
+        run(args, check=False)
+
+    @classmethod
+    def dump_library(cls, cfg, out_path):
+        """Read gogrepoc's manifest.dat (or equivalent) and reshape into the
+        lgogdownloader JSON format that goglib expects.
+
+        gogrepoc stores its metadata in a Python pickle file by default, plus
+        an optional JSON export via 'gogrepoc dump'. We invoke that and then
+        massage the structure to match.
+        """
+        # gogrepoc dumps its metadata to manifest.json on demand
+        gogrepo_dir = _state_dir() / "gogrepoc-work"
+        gogrepo_dir.mkdir(parents=True, exist_ok=True)
+        manifest_dat = gogrepo_dir / "gog-manifest.dat"
+        # Run gogrepoc 'list' which prints a structured list
+        # We then convert it.
+        # Note: gogrepoc's data model is per-game with an installers/extras list,
+        # which mostly matches lgogdownloader's. We do a minimal shape conversion.
+        try:
+            res = subprocess.run(
+                [cls.binary, "list", "--json"],
+                capture_output=True, text=True, check=True)
+            data = json.loads(res.stdout)
+        except (subprocess.CalledProcessError, json.JSONDecodeError, FileNotFoundError) as e:
+            sys.exit(
+                f"gogrepoc list failed: {e}\n"
+                f"Verify gogrepoc is installed and you've run: {cls.binary} login\n"
+                f"See https://github.com/Yepoleb/gogrepoc for installation.")
+
+        # Reshape gogrepoc's output to match lgogdownloader's JSON list format
+        out = []
+        for entry in data:
+            game = {
+                "gamename": entry.get("gamename") or entry.get("title", "").lower().replace(" ", "_"),
+                "title": entry.get("title", ""),
+                "gamename_basegame": entry.get("base_gamename"),
+                "title_basegame": entry.get("base_title"),
+                "installers": entry.get("installers", []),
+                "extras": entry.get("extras", []),
+                "patches": entry.get("patches", []),
+                "languagepacks": entry.get("language_packs", []),
+                "icon": entry.get("icon", ""),
+                "product_id": entry.get("product_id"),
+                "serials": entry.get("serials", []),
+                "changelog": entry.get("changelog", ""),
+            }
+            out.append(game)
+
+        with open(out_path, "w") as f:
+            json.dump(out, f)
+
+    @classmethod
+    def download(cls, cfg, game_re, blacklist_path, report_path, verbose=False):
+        plats = cls._translate_platform(cfg["platform"])
+        langs = cls._translate_language(cfg["language"])
+        # gogrepoc takes a list of game IDs; expanding the regex against the
+        # library JSON is goglib's job.
+        if not LIBRARY_JSON.exists():
+            sys.exit(f"Need {LIBRARY_JSON} to expand --game regex for gogrepoc. "
+                     f"Run: goglib refresh")
+        with open(LIBRARY_JSON) as f:
+            library = json.load(f)
+        pat = re.compile(game_re)
+        slugs = [g["gamename"] for g in library
+                 if g.get("gamename") and pat.search(g["gamename"])]
+
+        if not slugs:
+            log("gogrepoc: no slugs match")
+            return
+
+        # gogrepoc's download skips files already present on disk; we want
+        # manifest-driven skipping instead. Pre-walk staging and remove files
+        # that are in the blacklist BEFORE the download, so gogrepoc doesn't
+        # see them as "needs verifying".
+        # (Implementation note: gogrepoc lacks a blacklist option as of this
+        # writing, so the manifest blacklist is enforced solely by goglib's
+        # post-processing — gogrepoc may overdownload but goglib's process
+        # step still produces correct manifest state.)
+
+        args = [cls.binary, "download",
+                cfg["staging_dir"],
+                "-id"] + slugs
+        if cfg.get("threads"):
+            args.extend(["-threads", str(cfg["threads"])])
+        if not verbose:
+            args.append("-q")  # quiet
+        run(args, check=False)
+
+
+BACKENDS = {
+    "lgogdownloader": LgogDownloaderBackend,
+    "gogrepoc": GogRepoCBackend,
+}
+
+
+def resolve_backend(cfg):
+    """Pick a backend based on config and OS detection."""
+    name = cfg.get("backend", "auto").lower()
+    if name == "auto":
+        # Default per OS
+        if IS_WINDOWS:
+            preferred = [GogRepoCBackend, LgogDownloaderBackend]
+        else:
+            preferred = [LgogDownloaderBackend, GogRepoCBackend]
+        for b in preferred:
+            if b.is_available():
+                return b
+        sys.exit(
+            "No GOG download backend found. Install one:\n"
+            "  Linux/macOS: lgogdownloader (apt install lgogdownloader, or build from source)\n"
+            "  Windows:     gogrepoc       (pip install gogrepoc, then 'gogrepoc login')")
+    if name in BACKENDS:
+        b = BACKENDS[name]
+        if not b.is_available():
+            sys.exit(f"Backend '{name}' is configured but not available on PATH.")
+        return b
+    sys.exit(f"Unknown backend '{name}'. Choose from: {list(BACKENDS)} or 'auto'.")
+
+
+def cmd_refresh(args, cfg):
+    backend = resolve_backend(cfg)
+    log(f"Refreshing {backend.name} cache (slow — 20-40 min for 1000+ games)")
+    backend.refresh(cfg)
+    log("Dumping library JSON")
+    LIBRARY_JSON.parent.mkdir(parents=True, exist_ok=True)
+    backend.dump_library(cfg, LIBRARY_JSON)
+    log(f"Library saved to {LIBRARY_JSON}")
+
+
+def parse_allowed_langs(lang_str):
+    out = set()
+    for part in re.split(r"[+,]", (lang_str or "").lower()):
+        part = part.strip()
+        if not part:
+            continue
+        if part == "all":
+            return None
+        for primary, aliases in LANG_FILENAME_TOKENS.items():
+            if part == primary or part in aliases:
+                out.add(primary)
+                break
+    return out
+
+
+def build_extra_lang_blacklist_patterns(allowed_langs):
+    if allowed_langs is None:
+        return []
+    bad = set()
+    for primary, aliases in LANG_FILENAME_TOKENS.items():
+        if primary in allowed_langs:
+            continue
+        for tok in aliases:
+            bad.add(tok)
+    if not bad:
+        return []
+    tokens = sorted(bad, key=len, reverse=True)
+    tok_re = "|".join(re.escape(t) for t in tokens)
+    exts = "|".join(AUDIT_EXTS)
+    return [f".*_({tok_re})\\.({exts})$"]
+
+
+def build_blacklist(manifest, slugs, cfg, games_to_sync):
+    """Generate lgog --blacklist file.
+
+    Includes:
+      - per-file entries for EVERYTHING in manifest, regardless of current sync
+        scope (cheap; ensures no regression if scope shifts unexpectedly)
+      - OST format-priority blacklist (per game in current sync scope)
+      - language-token patterns (only if extras_lang_filter is true)
+      - any user-defined extra patterns from cfg
+    """
+    lines = ["# Auto-generated by goglib — do not edit manually"]
+
+    n_done = 0
+    for key, info in manifest.get("files", {}).items():
+        slug = info.get("slug") or key.split("/", 1)[0]
+        fname = info.get("original_filename") or key.split("/", 1)[1]
+        # NO leading ^ anchor — lgog passes paths with a leading '/' in some
+        # versions, which breaks anchored patterns. regex_search semantics
+        # mean unanchored is fine and works regardless of leading slash.
+        lines.append(f"Rp {re.escape(slug)}/(.*/)?{re.escape(fname)}$")
+        n_done += 1
+
+    n_ost = 0
+    ost_priority = cfg.get("ost_format_priority", [])
+    if ost_priority:
+        for game in games_to_sync:
+            for pat in build_ost_blacklist_for_game(game, ost_priority):
+                lines.append(f"Rp {pat}")
+                n_ost += 1
+
+    n_lang = 0
+    if cfg.get("extras_lang_filter", False):
+        allowed = parse_allowed_langs(cfg.get("language", ""))
+        for pat in build_extra_lang_blacklist_patterns(allowed):
+            lines.append(f"Rp {pat}")
+            n_lang += 1
+
+    n_user = 0
+    for pat in cfg.get("extra_blacklist_patterns", []) or []:
+        lines.append(f"Rp {pat}")
+        n_user += 1
+
+    BLACKLIST_TMP.write_text("\n".join(lines) + "\n")
+    return n_done, n_ost, n_lang, n_user
+
+
+def cmd_plan(args, cfg):
+    library = load_library()
+    games = filter_games(library, args.letter, args.game)
+    manifest = load_manifest()
+    files_done = set(manifest.get("files", {}).keys())
+
+    print(f"\n=== Plan: letter='{args.letter or 'all'}'"
+          + (f" game~/{args.game}/" if args.game else "")
+          + f" — {len(games)} games ===\n")
+
+    rows = []
+    total_size = 0
+    for g in games:
+        slug = g["gamename"]
+        title = g.get("title", slug)
+        gtotal, gcount = expected_size_total(g)
+        done_for_slug = sum(1 for k in files_done if k.startswith(f"{slug}/"))
+        total_size += gtotal
+        rows.append((gtotal, gcount, done_for_slug, slug, title))
+
+    rows.sort(reverse=True)
+    for gtotal, gcount, done, slug, title in rows:
+        if done == 0:
+            tag = "NEW    "
+        elif done >= gcount:
+            tag = "DONE   "
+        else:
+            tag = "PARTIAL"
+        print(f"  [{tag}] {fmt_size(gtotal):>11s}  ({done}/{gcount} files done)  {title}")
+
+    # Show OST format-filter savings preview
+    ost_priority = cfg.get("ost_format_priority", [])
+    if ost_priority:
+        ost_savings = 0
+        for g in games:
+            patterns = build_ost_blacklist_for_game(g, ost_priority)
+            if not patterns:
+                continue
+            for f in (g.get("extras") or []):
+                fname = (f.get("path") or "").rsplit("/", 1)[-1]
+                if not fname:
+                    continue
+                for pat in patterns:
+                    if re.match(pat, f"{g['gamename']}/{fname}"):
+                        ost_savings += parse_size(f.get("size"))
+                        break
+
+        if ost_savings:
+            print(f"\nOST format priority filter ({' > '.join(ost_priority)}): "
+                  f"will skip {fmt_size(ost_savings)} of duplicate format extras")
+
+    print(f"\nGames matched: {len(games)}")
+    print(f"Total advertised size (all files): {fmt_size(total_size)}")
+    print("(Actual download will be smaller — manifest+OST blacklist applies.)")
+
+
+def cmd_sync(args, cfg):
+    library = load_library()
+    games = filter_games(library, args.letter, args.game)
+    if not games:
+        print("No games match. Nothing to do.")
+        return
+    manifest = load_manifest()
+    library_index = index_library(library)
+    franchises = load_franchises()
+    slugs = {g["gamename"] for g in games}
+
+    n_done, n_ost, n_lang, n_user = build_blacklist(manifest, slugs, cfg, games)
+    log(f"Sync: {len(slugs)} games. Blacklist: {n_done} already-known, "
+        f"{n_ost} OST-priority, {n_lang} language, {n_user} user")
+
+    # Self-check: verify our generated patterns actually match the paths lgog
+    # will produce. Catches escaping bugs and pattern format regressions.
+    if n_done > 0 and BLACKLIST_TMP.exists():
+        try:
+            patterns = []
+            for line in BLACKLIST_TMP.read_text().splitlines():
+                line = line.strip()
+                if line.startswith("Rp "):
+                    patterns.append(re.compile(line[3:]))
+            sample_unmatched = []
+            for slug in list(slugs)[:5]:
+                for key, info in manifest.get("files", {}).items():
+                    if info.get("slug") != slug:
+                        continue
+                    fname = info.get("original_filename", "")
+                    if not fname:
+                        continue
+                    kind = info.get("kind", "installers")
+                    sub = "" if kind == "installers" else f"{kind}/"
+                    test_path = f"{slug}/{sub}{fname}"
+                    if not any(p.search(test_path) for p in patterns):
+                        sample_unmatched.append(test_path)
+            if sample_unmatched:
+                log(f"WARNING: {len(sample_unmatched)} manifest paths don't match "
+                    f"any blacklist pattern. Sample: {sample_unmatched[:3]}")
+        except re.error as e:
+            log(f"WARNING: blacklist contains invalid regex: {e}")
+
+    Path(cfg["staging_dir"]).mkdir(parents=True, exist_ok=True)
+    game_re = "^(" + "|".join(re.escape(s) for s in sorted(slugs)) + ")$"
+
+    backend = resolve_backend(cfg)
+    log(f"Starting {backend.name} download")
+    backend.download(cfg, game_re, BLACKLIST_TMP, REPORT_TMP, verbose=args.verbose)
+
+    log("Post-processing")
+    new_count, ver_count, skip_count = process_staging(
+        cfg, slugs, library_index, franchises, manifest)
+    save_manifest(manifest)
+    log(f"Done. {new_count} added, {ver_count} versioned, {skip_count} failed.")
+
+    unmapped = [s for s in slugs if s not in franchises]
+    if unmapped:
+        print(f"\n{len(unmapped)} games have no franchise mapping "
+              f"(using {cfg.get('standalone_folder','Standalone')}/):")
+        for s in sorted(unmapped)[:10]:
+            print(f"  {s}")
+        if len(unmapped) > 10:
+            print(f"  ... and {len(unmapped) - 10} more")
+        print(f"Edit {FRANCHISES_PATH} to map these, then run: goglib reorganize")
+
+
+def cmd_process(args, cfg):
+    library = load_library()
+    library_index = index_library(library)
+    franchises = load_franchises()
+    staging = Path(cfg["staging_dir"])
+
+    if args.letter or args.game:
+        games = filter_games(library, args.letter, args.game)
+        slugs = {g["gamename"] for g in games}
+    else:
+        if not staging.exists():
+            print("Staging dir doesn't exist; nothing to process")
+            return
+        slugs = {p.name for p in staging.iterdir() if p.is_dir()}
+
+    if not slugs:
+        print("No matching slugs to process")
+        return
+
+    log(f"Processing {len(slugs)} slugs from staging (no download)")
+    manifest = load_manifest()
+    new_count, ver_count, skip_count = process_staging(
+        cfg, slugs, library_index, franchises, manifest)
+    save_manifest(manifest)
+    log(f"Done. {new_count} added, {ver_count} versioned, {skip_count} failed.")
+
+
+def process_staging(cfg, slugs, library_index, franchises, manifest):
+    """Walk staging for each slug, move files to library, update manifest."""
+    library_root = Path(cfg["library_dir"])
+    versions_root = Path(cfg["versions_dir"])
+    library_root.mkdir(parents=True, exist_ok=True)
+
+    new_count = ver_count = skip_count = 0
+
+    for slug in sorted(slugs):
+        game = library_index.get(slug)
+        if not game:
+            log(f"  [{slug}] not in library JSON, skipping")
+            continue
+
+        staging_slug = Path(cfg["staging_dir"]) / slug
+        if not staging_slug.exists():
+            continue
+
+        files = []
+        for p in staging_slug.rglob("*"):
+            if not p.is_file():
+                continue
+            if p.suffix in (".tmp", ".part") or p.name.endswith(".tmp"):
+                continue
+            files.append(p)
+
+        if not files:
+            log(f"  [{slug}] staging exists but no complete files found")
+            continue
+
+        log(f"  [{slug}] processing {len(files)} files")
+        target_dir = target_dir_for(game, library_index, library_root, franchises, cfg)
+        dlc_slug_for_rename = slug if is_dlc(game) and cfg.get("flatten_dlc_folder", True) else None
+
+        for src_path in files:
+            rel = src_path.relative_to(staging_slug)
+            kind, rel_subdir = derive_kind(str(rel.parent))
+
+            new_name = rename_for_target(src_path.name, cfg, dlc_slug=dlc_slug_for_rename)
+            dest_dir = target_dir / rel_subdir if rel_subdir else target_dir
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_path = dest_dir / new_name
+
+            if dest_path.exists():
+                ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+                vpath = versions_root / safe_dir(slug,
+                            cfg.get("dir_replace_spaces", True)) / ts / new_name
+                vpath.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(dest_path), str(vpath))
+                log(f"    [{slug}] versioned existing {new_name} -> {vpath}")
+                ver_count += 1
+
+            try:
+                shutil.move(str(src_path), str(dest_path))
+            except Exception as e:
+                log(f"    [{slug}] FAILED to move {src_path.name}: {e}")
+                skip_count += 1
+                continue
+
+            log(f"    [{slug}] {src_path.name} -> {dest_path}")
+            manifest["files"][mkey(slug, src_path.name)] = {
+                "slug": slug,
+                "title": game.get("title") or slug,
+                "original_filename": src_path.name,
+                "renamed": new_name,
+                "destination": str(dest_path),
+                "size": dest_path.stat().st_size,
+                "kind": kind,
+                "is_dlc": is_dlc(game),
+                "downloaded_at": datetime.now().isoformat(timespec="seconds"),
+                "status": "downloaded",
+            }
+            new_count += 1
+
+        if staging_slug.exists():
+            for d in sorted([p for p in staging_slug.rglob("*") if p.is_dir()],
+                            key=lambda p: -len(str(p))):
+                try:
+                    d.rmdir()
+                except OSError:
+                    pass
+            try:
+                staging_slug.rmdir()
+            except OSError:
+                pass
+
+    return new_count, ver_count, skip_count
+
+
+def cmd_audit(args, cfg):
+    library_root = Path(cfg["library_dir"])
+    if not library_root.exists():
+        print(f"Library dir doesn't exist: {library_root}")
+        return
+
+    allowed = parse_allowed_langs(cfg.get("language", ""))
+    if allowed is None:
+        print("Language config is 'all' — nothing to audit.")
+        return
+
+    bad_tokens = set()
+    for primary, aliases in LANG_FILENAME_TOKENS.items():
+        if primary in allowed:
+            continue
+        bad_tokens.update(aliases)
+
+    if not bad_tokens:
+        print("No bad tokens (allowed languages cover everything).")
+        return
+
+    tokens = sorted(bad_tokens, key=len, reverse=True)
+    tok_re = "|".join(re.escape(t) for t in tokens)
+    exts = "|".join(AUDIT_EXTS)
+    pattern = re.compile(f".*_({tok_re})\\.({exts})$", re.IGNORECASE)
+
+    manifest = load_manifest()
+    files_by_dest = {}
+    for k, f in manifest.get("files", {}).items():
+        dest = f.get("destination")
+        if dest:
+            files_by_dest[dest] = (k, f)
+
+    matches = [p for p in library_root.rglob("*")
+               if p.is_file() and pattern.match(p.name.lower())]
+
+    if not matches:
+        print("No files match suspicious language patterns.")
+        return
+
+    if not args.review_all:
+        to_review = [p for p in matches
+                     if not (files_by_dest.get(str(p), (None, {}))[1].get("audited"))]
+    else:
+        to_review = matches
+
+    print(f"Found {len(matches)} files matching language token patterns.")
+    if len(to_review) < len(matches):
+        print(f"({len(matches) - len(to_review)} previously audited; "
+              f"use --review-all to see them again.)")
+    print(f"Reviewing {len(to_review)}.")
+    print(f"Allowed languages: {sorted(allowed)}")
+    print(f"\nKeys: [k]eep / [d]elete / [s]kip rest of this game / [q]uit and save\n")
+
+    deleted = kept = 0
+    skip_games = set()
+
+    try:
+        i = 0
+        for p in to_review:
+            i += 1
+            try:
+                rel = p.relative_to(library_root)
+            except ValueError:
+                continue
+            game_folder = "/".join(rel.parts[:-1]) if len(rel.parts) > 1 else "?"
+            top_folder = rel.parts[0] if rel.parts else "?"
+
+            if top_folder in skip_games:
+                continue
+
+            size = p.stat().st_size
+            m = pattern.match(p.name.lower())
+            token = m.group(1) if m else "?"
+
+            print(f"\n[{i}/{len(to_review)}] Token matched: '{token}'")
+            print(f"  Game folder: {game_folder}")
+            print(f"  File:        {p.name}")
+            print(f"  Size:        {fmt_size(size)}")
+
+            try:
+                ans = input("  [k/d/s/q]: ").lower().strip()
+            except (EOFError, KeyboardInterrupt):
+                print("\nInterrupted.")
+                break
+
+            if ans == "q":
+                print("Quit.")
+                break
+            elif ans == "s":
+                skip_games.add(top_folder)
+                print(f"  Skipping rest of '{top_folder}'.")
+            elif ans == "d":
+                try:
+                    p.unlink()
+                    deleted += 1
+                    entry = files_by_dest.get(str(p))
+                    if entry:
+                        _, info = entry
+                        info["status"] = "deleted"
+                        info["audited"] = True
+                        info["deleted_at"] = datetime.now().isoformat(timespec="seconds")
+                    print("  Deleted.")
+                except Exception as e:
+                    print(f"  FAILED to delete: {e}")
+            else:
+                entry = files_by_dest.get(str(p))
+                if entry:
+                    _, info = entry
+                    info["audited"] = True
+                kept += 1
+                print("  Kept and marked audited.")
+    finally:
+        save_manifest(manifest)
+
+    print(f"\n=== Audit summary ===")
+    print(f"Deleted: {deleted}")
+    print(f"Kept:    {kept}")
+
+
+def cmd_reorganize(args, cfg):
+    library = load_library()
+    library_index = index_library(library)
+    franchises = load_franchises()
+    library_root = Path(cfg["library_dir"])
+    versions_root = Path(cfg["versions_dir"])
+    manifest = load_manifest()
+
+    moved = unchanged = missing = failed = 0
+
+    for key, info in list(manifest.get("files", {}).items()):
+        if info.get("status") != "downloaded":
+            continue
+        old_path_str = info.get("destination", "")
+        if not old_path_str:
+            continue
+        old_path = Path(old_path_str)
+        if not old_path.exists():
+            missing += 1
+            continue
+
+        new_path = compute_full_dest(info, library_index, library_root, franchises, cfg)
+        if new_path is None:
+            continue
+        if new_path == old_path:
+            unchanged += 1
+            continue
+
+        if args.dry_run:
+            print(f"WOULD MOVE: {old_path}")
+            print(f"        -> {new_path}")
+            moved += 1
+            continue
+
+        new_path.parent.mkdir(parents=True, exist_ok=True)
+        if new_path.exists():
+            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+            vpath = versions_root / safe_dir(info["slug"],
+                cfg.get("dir_replace_spaces", True)) / ts / new_path.name
+            vpath.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(new_path), str(vpath))
+            log(f"  versioned existing {new_path} -> {vpath}")
+
+        try:
+            shutil.move(str(old_path), str(new_path))
+            info["destination"] = str(new_path)
+            info["renamed"] = new_path.name
+            log(f"  moved {old_path} -> {new_path}")
+            moved += 1
+        except Exception as e:
+            log(f"  FAILED to move {old_path}: {e}")
+            failed += 1
+
+    if not args.dry_run:
+        save_manifest(manifest)
+        for p in sorted([d for d in library_root.rglob("*") if d.is_dir()],
+                        key=lambda x: -len(str(x))):
+            try:
+                p.rmdir()
+            except OSError:
+                pass
+
+    verb = "Would move" if args.dry_run else "Moved"
+    print(f"\n{verb}: {moved}, unchanged: {unchanged}, "
+          f"missing-on-disk: {missing}, failed: {failed}")
+
+
+def cmd_forget(args, cfg):
+    if not args.game and not args.letter:
+        sys.exit("Must specify --letter or --game")
+    library = load_library()
+    games = filter_games(library, args.letter, args.game)
+    slugs = {g["gamename"] for g in games}
+    if not slugs:
+        print("No matching games")
+        return
+
+    manifest = load_manifest()
+    files = manifest.get("files", {})
+    to_remove = [k for k, v in files.items() if v.get("slug") in slugs]
+    if not to_remove:
+        print("No matching manifest entries")
+        return
+
+    print(f"Will remove {len(to_remove)} manifest entries:")
+    counts = {}
+    for k in to_remove:
+        s = files[k].get("slug", "?")
+        counts[s] = counts.get(s, 0) + 1
+    for s in sorted(counts):
+        print(f"  {s}: {counts[s]} files")
+
+    if not args.yes:
+        try:
+            ans = input("Proceed? [y/N] ")
+        except EOFError:
+            ans = ""
+        if ans.lower() != "y":
+            print("Aborted")
+            return
+
+    for k in to_remove:
+        del files[k]
+    save_manifest(manifest)
+    print(f"Removed {len(to_remove)} entries from manifest")
+
+
+def cmd_status(args, cfg):
+    manifest = load_manifest()
+    files = manifest.get("files", {})
+    if not files:
+        print("Manifest is empty. Nothing downloaded yet via goglib.")
+        return
+    total = sum(f.get("size", 0) for f in files.values()
+                if f.get("status") == "downloaded")
+    by_kind = {}
+    by_slug = {}
+    deleted = 0
+    audited = 0
+    for f in files.values():
+        st = f.get("status", "downloaded")
+        if st == "deleted":
+            deleted += 1
+            continue
+        if f.get("audited"):
+            audited += 1
+        k = f.get("kind", "unknown")
+        by_kind[k] = by_kind.get(k, 0) + f.get("size", 0)
+        by_slug.setdefault(f.get("slug", "?"), []).append(f)
+
+    franchises = load_franchises()
+    mapped = sum(1 for s in by_slug if s in franchises)
+    unmapped = len(by_slug) - mapped
+
+    print(f"Manifest:        {MANIFEST_PATH}")
+    print(f"Files tracked:   {len(files)}")
+    print(f"  on disk:       {len(files) - deleted}")
+    print(f"  audit-deleted: {deleted}")
+    print(f"  audit-kept:    {audited}")
+    print(f"Games tracked:   {len(by_slug)}")
+    print(f"  franchise-mapped:      {mapped}")
+    print(f"  unmapped (Standalone): {unmapped}")
+    print(f"Total size on disk: {fmt_size(total)}")
+    print()
+    print("By content type (downloaded only):")
+    for k, s in sorted(by_kind.items(), key=lambda x: -x[1]):
+        print(f"  {k:15s} {fmt_size(s)}")
+
+    by_letter = {}
+    for slug, entries in by_slug.items():
+        # Use the title from the first manifest entry for this slug
+        title = entries[0].get("title") if entries else None
+        c = title_first_char(title or slug)
+        by_letter[c] = by_letter.get(c, 0) + 1
+    print("\nGames by first letter (title-based, articles stripped):")
+    for c in sorted(by_letter):
+        print(f"  {c}: {by_letter[c]}")
+
+
+def cmd_config(args, cfg):
+    if args.write_default:
+        write_default_config()
+        return
+    print(f"Config file:     {CONFIG_PATH} (exists: {CONFIG_PATH.exists()})")
+    print(f"Franchises file: {FRANCHISES_PATH} (exists: {FRANCHISES_PATH.exists()})")
+    print("\nEffective config:")
+    for k, v in cfg.items():
+        print(f"  {k}: {v}")
+
+
+def main():
+    p = argparse.ArgumentParser(prog="goglib", description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    sp = sub.add_parser("refresh", help="Refresh lgog cache + library JSON")
+    sp.set_defaults(func=cmd_refresh)
+
+    sp = sub.add_parser("plan", help="Show what would be downloaded")
+    sp.add_argument("--letter", default=None)
+    sp.add_argument("--game", default=None)
+    sp.set_defaults(func=cmd_plan)
+
+    sp = sub.add_parser("sync", help="Download new files and organize")
+    sp.add_argument("--letter", default=None)
+    sp.add_argument("--game", default=None)
+    sp.add_argument("--verbose", action="store_true",
+                    help="Pass verbosity flag to the backend (shows skip messages)")
+    sp.set_defaults(func=cmd_sync)
+
+    sp = sub.add_parser("process",
+                        help="Post-process existing staging without re-downloading")
+    sp.add_argument("--letter", default=None)
+    sp.add_argument("--game", default=None)
+    sp.set_defaults(func=cmd_process)
+
+    sp = sub.add_parser("audit",
+                        help="Interactively review extras matching language tokens")
+    sp.add_argument("--review-all", action="store_true")
+    sp.set_defaults(func=cmd_audit)
+
+    sp = sub.add_parser("reorganize",
+                        help="Move files in library to match current config")
+    sp.add_argument("--dry-run", action="store_true")
+    sp.set_defaults(func=cmd_reorganize)
+
+    sp = sub.add_parser("forget",
+                        help="Remove matching entries from manifest")
+    sp.add_argument("--letter", default=None)
+    sp.add_argument("--game", default=None)
+    sp.add_argument("--yes", action="store_true", help="Skip confirmation")
+    sp.set_defaults(func=cmd_forget)
+
+    sp = sub.add_parser("status", help="Manifest summary")
+    sp.set_defaults(func=cmd_status)
+
+    sp = sub.add_parser("config", help="Show or initialize config")
+    sp.add_argument("--write-default", action="store_true")
+    sp.set_defaults(func=cmd_config)
+
+    args = p.parse_args()
+    cfg = load_config()
+    args.func(args, cfg)
+
+
+if __name__ == "__main__":
+    main()

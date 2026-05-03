@@ -1,0 +1,436 @@
+#!/usr/bin/env python3
+"""
+goglib-rebuild-manifest — reconstruct goglib's manifest.json from disk.
+
+Last-resort recovery tool: if you've lost ~/.local/share/goglib/manifest.json
+(no backup, no snapshot), this scans your library directories and rebuilds it
+from scratch by matching each file back to its GOG metadata.
+
+How it works:
+  1. Load library.json (lgog's --list j dump). Build index of every known GOG
+     filename → (slug, kind).
+  2. Walk one or more library directories. For each file:
+     a. Reverse the goglib rename: strip DLC slug prefix if present, then
+        re-prefix with 'setup_' if the file looks like a stripped installer.
+     b. Look up the result in the GOG filename index.
+     c. On match: emit a manifest entry with reconstructed metadata.
+     d. On no match: report it as 'unmatched' for manual inspection.
+  3. Optionally write the new manifest to disk.
+
+Files that won't be matched (and that's fine):
+  - Files unique to your local setup (notes.txt, custom mods, etc.)
+  - Anything not present in the current library.json (game removed from your
+    GOG library since download)
+  - Files in the _versions/ archive (these are intentionally excluded)
+
+USAGE:
+  goglib-rebuild-manifest [--dry-run] [--scan DIR ...] [--write] [--out PATH]
+
+  --scan DIR    Library dir to scan (default: from goglib config). Pass
+                multiple times to scan SSD + external drive together.
+  --dry-run     Show what would be matched, don't write any file (default).
+  --write       Actually write the rebuilt manifest. Backs up existing
+                manifest to manifest.json.before-rebuild-<timestamp>.
+  --out PATH    Write to alternate path (default: goglib's manifest path).
+"""
+
+import argparse
+import json
+import re
+import shutil
+import sys
+from datetime import datetime
+from pathlib import Path
+
+HOME = Path.home()
+CONFIG_PATH = HOME / ".config/goglib/config.json"
+MANIFEST_PATH = HOME / ".local/share/goglib/manifest.json"
+LIBRARY_JSON = HOME / ".local/share/goglib/library.json"
+
+DEFAULTS = {
+    "library_dir": str(HOME / "GOGLibrary"),
+    "versions_dir": str(HOME / "GOGLibrary/_versions"),
+    "filename_strip_prefix": "setup_",
+    "filename_pattern": "{stripped}",
+    "flatten_dlc_folder": True,
+}
+
+
+def load_config():
+    cfg = dict(DEFAULTS)
+    if CONFIG_PATH.exists():
+        with open(CONFIG_PATH) as f:
+            cfg.update(json.load(f))
+    return cfg
+
+
+def fmt_size(n):
+    n = float(n)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if n < 1024:
+            return f"{n:.2f} {unit}"
+        n /= 1024
+    return f"{n:.2f} PiB"
+
+
+def parse_size(v):
+    if v is None or v == "":
+        return 0
+    if isinstance(v, (int, float)):
+        return int(v)
+    try:
+        return int(float(str(v).strip()))
+    except ValueError:
+        return 0
+
+
+def is_dlc(game):
+    slug = game.get("gamename")
+    basegame = game.get("gamename_basegame")
+    return bool(basegame and basegame != slug)
+
+
+def build_filename_index(library):
+    """Build index: original_filename -> list of (slug, kind, file_meta).
+    
+    A filename is in theory unique to a game/file, but in practice GOG
+    occasionally reuses things like 'manual.pdf' across games. We keep all
+    candidates and disambiguate later using the parent directory.
+    """
+    idx = {}
+    for game in library:
+        slug = game.get("gamename")
+        if not slug:
+            continue
+        for kind in ("installers", "patches", "extras", "languagepacks"):
+            for f in (game.get(kind) or []):
+                # 'path' in lgog JSON is usually just the bare filename
+                # (e.g. 'setup_7th_legion_2.0.0.5.exe') with no slashes.
+                # If it does contain a slash, take the last segment.
+                # 'name' is a display label ("7th Legion"), NOT a filename.
+                path = f.get("path") or ""
+                if "/" in path:
+                    fname = path.rsplit("/", 1)[-1]
+                else:
+                    fname = path
+                if not fname:
+                    continue
+                idx.setdefault(fname, []).append((slug, kind, f))
+    return idx
+
+
+def reverse_rename(filename, cfg):
+    """Try to reconstruct the GOG-original filename from goglib's renamed file.
+    
+    Returns a list of plausible original filenames to try, in priority order.
+    Multiple candidates because we can't always tell deterministically (e.g.
+    is 'foo__bar.exe' a DLC-prefixed file, or just a name with two underscores?).
+    """
+    candidates = [filename]  # always try as-is in case it wasn't renamed
+
+    prefix = cfg.get("filename_strip_prefix", "setup_")
+
+    # 1. Try with the GOG-default 'setup_' prefix re-added (most installers)
+    if prefix and not filename.startswith(prefix):
+        candidates.append(prefix + filename)
+
+    # 2. Try as a flattened-DLC file: split on '__' and try the right half
+    if cfg.get("flatten_dlc_folder", True) and "__" in filename:
+        # Take everything after first '__' (DLC slug + dunder + rest)
+        _, rest = filename.split("__", 1)
+        candidates.append(rest)
+        if prefix and not rest.startswith(prefix):
+            candidates.append(prefix + rest)
+
+    return candidates
+
+
+def derive_kind_from_path(rel_path_parts):
+    """Look at directory components to figure out content kind."""
+    for part in rel_path_parts:
+        p = part.lower()
+        if p == "extras":
+            return "extras"
+        if p == "patches":
+            return "patches"
+        if p in ("languagepacks", "language_packs"):
+            return "languagepacks"
+    return "installers"
+
+
+def detect_dlc_from_filename(filename, cfg, library_index):
+    """If filename looks like a flattened-DLC entry (slug__rest), return slug.
+    Otherwise None.
+    """
+    if not cfg.get("flatten_dlc_folder", True):
+        return None
+    if "__" not in filename:
+        return None
+    candidate_slug, _ = filename.split("__", 1)
+    if candidate_slug in library_index:
+        return candidate_slug
+    return None
+
+
+def scan_directory(scan_dir, versions_dir, library, library_index, cfg, file_idx):
+    """Walk scan_dir; for each file, attempt to identify its slug+kind+original.
+    
+    Returns (matched, unmatched) lists.
+      matched = list of (path, slug, kind, original_filename, size)
+      unmatched = list of (path, reason)
+    """
+    matched = []
+    unmatched = []
+    versions_resolved = Path(versions_dir).resolve()
+
+    scan_path = Path(scan_dir).resolve()
+    if not scan_path.exists():
+        print(f"  [skip] {scan_dir}: doesn't exist")
+        return matched, unmatched
+
+    for path in scan_path.rglob("*"):
+        if not path.is_file():
+            continue
+
+        # Skip the versions archive — those are intentional duplicates
+        try:
+            path.resolve().relative_to(versions_resolved)
+            continue  # path is inside versions dir, skip
+        except (ValueError, OSError):
+            pass
+
+        # Skip our own backup files
+        if path.name.startswith(".") or path.name.endswith(".tmp"):
+            continue
+
+        # Reverse-rename to recover plausible GOG originals
+        candidates = reverse_rename(path.name, cfg)
+        dlc_slug = detect_dlc_from_filename(path.name, cfg, library_index)
+
+        # Look up each candidate in the filename index
+        match = None
+        for cand in candidates:
+            hits = file_idx.get(cand)
+            if not hits:
+                continue
+            # If multiple games share this filename, prefer the DLC slug we
+            # detected from the prefix
+            if dlc_slug:
+                for slug, kind, meta in hits:
+                    if slug == dlc_slug:
+                        match = (cand, slug, kind, meta)
+                        break
+                if match:
+                    break
+            # Otherwise, if there's exactly one hit, use it
+            if len(hits) == 1:
+                slug, kind, meta = hits[0]
+                match = (cand, slug, kind, meta)
+                break
+            # Multiple hits without a DLC clue — try to disambiguate by parent dir.
+            # Parent dir name often contains the title; we can fall back on
+            # the path bits to bias selection. For now, take the first.
+            slug, kind, meta = hits[0]
+            match = (cand, slug, kind, meta)
+            break
+
+        if match is None:
+            unmatched.append((str(path), "no GOG file matches this name"))
+            continue
+
+        original_filename, slug, kind, meta = match
+        size = path.stat().st_size
+
+        # Sanity check: does the size match what GOG advertises? Mismatch
+        # doesn't disqualify (could be a different version), but worth noting.
+        expected_size = parse_size(meta.get("size"))
+        size_mismatch = expected_size and abs(size - expected_size) > 1024
+
+        matched.append({
+            "path": str(path),
+            "slug": slug,
+            "kind": kind,
+            "original_filename": original_filename,
+            "renamed": path.name,
+            "size": size,
+            "size_mismatch": size_mismatch,
+            "expected_size": expected_size,
+        })
+
+    return matched, unmatched
+
+
+def build_manifest_entries(matched, library_index):
+    """Convert match records into manifest entries, deduplicating by (slug, fname)."""
+    files = {}
+    for m in matched:
+        slug = m["slug"]
+        fname = m["original_filename"]
+        key = f"{slug}/{fname}"
+        game = library_index.get(slug, {})
+        # If we already saw this key, prefer the entry on the SSD (heuristic:
+        # 'GOGLibrary' over external drive). We don't actually know which is
+        # which, so just keep the first and report the duplicate.
+        if key in files:
+            # Treat second occurrence as a versioned duplicate; skip
+            continue
+        files[key] = {
+            "slug": slug,
+            "title": game.get("title") or slug,
+            "original_filename": fname,
+            "renamed": m["renamed"],
+            "destination": m["path"],
+            "size": m["size"],
+            "kind": m["kind"],
+            "is_dlc": is_dlc(game),
+            "downloaded_at": datetime.fromtimestamp(
+                Path(m["path"]).stat().st_mtime).isoformat(timespec="seconds"),
+            "status": "downloaded",
+            "rebuilt": True,  # marks this entry as reconstructed, not original
+        }
+    return files
+
+
+def main():
+    p = argparse.ArgumentParser(
+        prog="goglib-rebuild-manifest",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--scan", action="append", default=None,
+                   help="Library dir to scan (repeatable). Default: from config.")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Show matches without writing (default).")
+    p.add_argument("--write", action="store_true",
+                   help="Write the rebuilt manifest to disk.")
+    p.add_argument("--out", default=None,
+                   help=f"Output path (default: {MANIFEST_PATH})")
+    p.add_argument("--show-unmatched", type=int, default=20,
+                   help="Number of unmatched files to print (default: 20)")
+    p.add_argument("--show-mismatched", type=int, default=20,
+                   help="Number of size-mismatched files to print (default: 20)")
+    args = p.parse_args()
+
+    if args.write and args.dry_run:
+        sys.exit("Cannot specify both --write and --dry-run")
+    if not args.write:
+        args.dry_run = True  # default
+
+    cfg = load_config()
+    out_path = Path(args.out) if args.out else MANIFEST_PATH
+
+    # Load library.json
+    if not LIBRARY_JSON.exists():
+        sys.exit(f"No library JSON at {LIBRARY_JSON}. Run: goglib refresh")
+    print(f"Loading library: {LIBRARY_JSON}")
+    with open(LIBRARY_JSON) as f:
+        library = json.load(f)
+    print(f"  {len(library)} games in library")
+
+    library_index = {g.get("gamename"): g for g in library if g.get("gamename")}
+    file_idx = build_filename_index(library)
+    print(f"  {len(file_idx)} unique original filenames indexed")
+
+    # Decide which dirs to scan
+    scan_dirs = args.scan or [cfg["library_dir"]]
+    print(f"\nScanning {len(scan_dirs)} directories:")
+    for d in scan_dirs:
+        print(f"  {d}")
+
+    versions_dir = cfg.get("versions_dir", "")
+    print(f"Excluding versions dir: {versions_dir}")
+    print()
+
+    # Run the scan
+    all_matched = []
+    all_unmatched = []
+    for d in scan_dirs:
+        print(f"Scanning {d}...")
+        m, u = scan_directory(d, versions_dir, library, library_index, cfg, file_idx)
+        print(f"  matched={len(m)}, unmatched={len(u)}")
+        all_matched.extend(m)
+        all_unmatched.extend(u)
+
+    # Summary
+    print(f"\n=== Summary ===")
+    print(f"Total matched files:    {len(all_matched)}")
+    print(f"Total unmatched files:  {len(all_unmatched)}")
+
+    by_slug = {}
+    by_kind = {}
+    total_size = 0
+    mismatched = []
+    for m in all_matched:
+        by_slug.setdefault(m["slug"], []).append(m)
+        by_kind[m["kind"]] = by_kind.get(m["kind"], 0) + m["size"]
+        total_size += m["size"]
+        if m["size_mismatch"]:
+            mismatched.append(m)
+
+    print(f"Distinct games:         {len(by_slug)}")
+    print(f"Total size on disk:     {fmt_size(total_size)}")
+    print(f"\nBy content type:")
+    for k, s in sorted(by_kind.items(), key=lambda x: -x[1]):
+        print(f"  {k:15s} {fmt_size(s)}")
+
+    # Show unmatched
+    if all_unmatched and args.show_unmatched > 0:
+        n = min(len(all_unmatched), args.show_unmatched)
+        print(f"\n=== First {n} unmatched files ===")
+        print("(These won't appear in the rebuilt manifest. Verify they're "
+              "expected — e.g. notes, mods, manually-added files.)")
+        for path, reason in all_unmatched[:n]:
+            print(f"  {path}")
+        if len(all_unmatched) > n:
+            print(f"  ... and {len(all_unmatched) - n} more")
+
+    # Show size mismatches
+    if mismatched and args.show_mismatched > 0:
+        n = min(len(mismatched), args.show_mismatched)
+        print(f"\n=== First {n} size-mismatched files ===")
+        print("(Disk size differs from GOG metadata. Could be a different "
+              "version. Still rebuilt; verify if concerning.)")
+        for m in mismatched[:n]:
+            print(f"  {m['path']}")
+            print(f"    on disk: {fmt_size(m['size'])}, "
+                  f"GOG advertises: {fmt_size(m['expected_size'])}")
+        if len(mismatched) > n:
+            print(f"  ... and {len(mismatched) - n} more")
+
+    # Build manifest
+    files = build_manifest_entries(all_matched, library_index)
+    manifest = {"version": 4, "files": files, "rebuilt_at":
+                datetime.now().isoformat(timespec="seconds")}
+
+    print(f"\n=== Manifest preview ===")
+    print(f"Entries to write: {len(files)}")
+    if files:
+        sample_key = next(iter(files))
+        print(f"\nSample entry:")
+        print(f"  {sample_key}:")
+        print(json.dumps(files[sample_key], indent=4))
+
+    # Write or not
+    if args.dry_run:
+        print(f"\n[DRY RUN] Would write to: {out_path}")
+        print(f"Re-run with --write to actually save.")
+        return
+
+    # Backup existing manifest if present
+    if out_path.exists():
+        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup = out_path.with_name(out_path.name + f".before-rebuild-{ts}")
+        shutil.copy2(str(out_path), str(backup))
+        print(f"\nBacked up existing manifest -> {backup}")
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out_path.with_suffix(out_path.suffix + ".tmp")
+    with open(tmp, "w") as f:
+        json.dump(manifest, f, indent=2, sort_keys=True)
+    tmp.replace(out_path)
+    print(f"Wrote rebuilt manifest -> {out_path}")
+    print(f"\nNext step: goglib status   (verify the numbers look right)")
+    print("If anything looks wrong, restore the .before-rebuild-* backup.")
+
+
+if __name__ == "__main__":
+    main()

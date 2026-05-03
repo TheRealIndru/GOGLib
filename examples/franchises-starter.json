@@ -1,0 +1,1291 @@
+{
+  "_comment": "Starter franchises file with the most common franchises by entry count. Drop into ~/.config/goglib/franchises.json and customize. Map slug -> {franchise, year, title}. Year and title are optional. Title overrides GOG's default title for folder naming. Entries starting with _ are ignored.",
+  "akalabeth_world_of_doom": {
+    "franchise": "Ultima",
+    "year": 1979,
+    "title": "Akalabeth - World of Doom"
+  },
+  "alqadim_the_genies_curse": {
+    "franchise": "D&D Computer RPGs",
+    "year": 1994,
+    "title": "Al-Qadim - The Genie's Curse"
+  },
+  "an_elder_scrolls_legend_battlespire_game": {
+    "franchise": "The Elder Scrolls",
+    "year": 1997,
+    "title": "An Elder Scrolls Legend - Battlespire"
+  },
+  "avernum": {
+    "franchise": "Avernum",
+    "year": 2000
+  },
+  "avernum_2": {
+    "franchise": "Avernum",
+    "year": 2000
+  },
+  "avernum_3": {
+    "franchise": "Avernum",
+    "year": 2002
+  },
+  "avernum_4": {
+    "franchise": "Avernum",
+    "year": 2004
+  },
+  "avernum_5": {
+    "franchise": "Avernum",
+    "year": 2007
+  },
+  "avernum_6": {
+    "franchise": "Avernum",
+    "year": 2009
+  },
+  "avernum_escape_from_the_pit": {
+    "franchise": "Avernum",
+    "year": 2012,
+    "title": "Avernum - Escape From the Pit"
+  },
+  "blades_of_avernum": {
+    "franchise": "Avernum",
+    "year": 2004
+  },
+  "broken_sword_2__the_smoking_mirror": {
+    "franchise": "Broken Sword",
+    "year": 1997,
+    "title": "Broken Sword 2 - The Smoking Mirror"
+  },
+  "broken_sword_3__the_sleeping_dragon": {
+    "franchise": "Broken Sword",
+    "year": 2003,
+    "title": "Broken Sword 3 - The Sleeping Dragon"
+  },
+  "broken_sword_4": {
+    "franchise": "Broken Sword",
+    "year": 2006,
+    "title": "Broken Sword 4 - The Angel of Death"
+  },
+  "broken_sword_5_the_serpents_curse_episode_1": {
+    "franchise": "Broken Sword",
+    "year": 2013,
+    "title": "Broken Sword 5 - The Serpent's Curse"
+  },
+  "broken_sword_directors_cut": {
+    "franchise": "Broken Sword",
+    "year": 1996,
+    "title": "Broken Sword 1 - Director's Cut"
+  },
+  "crusaders_of_might_and_magic": {
+    "franchise": "Might and Magic",
+    "year": 1999
+  },
+  "curse_of_the_azure_bonds": {
+    "franchise": "Forgotten Realms (Gold Box)",
+    "year": 1989
+  },
+  "daggerfall_unity_gog_cut": {
+    "franchise": "The Elder Scrolls",
+    "year": 1996,
+    "title": "The Elder Scrolls 2 - Daggerfall Unity"
+  },
+  "dawn_of_war_ii_dawn_of_war_ii_chaos_rising": {
+    "franchise": "Warhammer",
+    "year": 2009,
+    "title": "Dawn of War 2 + Chaos Rising"
+  },
+  "dd_stronghold_kingdom_simulator": {
+    "franchise": "D&D Computer RPGs",
+    "year": 1993,
+    "title": "D&D Stronghold - Kingdom Simulator"
+  },
+  "delta_force": {
+    "franchise": "Delta Force",
+    "year": 1998
+  },
+  "delta_force_2": {
+    "franchise": "Delta Force",
+    "year": 1999
+  },
+  "delta_force_black_hawk_down_platinum_pack": {
+    "franchise": "Delta Force",
+    "year": 2003,
+    "title": "Delta Force - Black Hawk Down Platinum Pack"
+  },
+  "delta_force_land_warrior": {
+    "franchise": "Delta Force",
+    "year": 2000,
+    "title": "Delta Force - Land Warrior"
+  },
+  "delta_force_task_force_dagger": {
+    "franchise": "Delta Force",
+    "year": 2002,
+    "title": "Delta Force - Task Force Dagger"
+  },
+  "delta_force_xtreme": {
+    "franchise": "Delta Force",
+    "year": 2005,
+    "title": "Delta Force - Xtreme"
+  },
+  "doom_1993_doom_ii": {
+    "franchise": "Doom",
+    "year": 1993,
+    "title": "Doom + Doom 2"
+  },
+  "doom_3_bfg_edition_game": {
+    "franchise": "Doom",
+    "year": 2012,
+    "title": "Doom 3 - BFG Edition"
+  },
+  "doom_3_classic": {
+    "franchise": "Doom",
+    "year": 2004,
+    "title": "Doom 3"
+  },
+  "doom_3_phobos": {
+    "franchise": "Doom",
+    "year": 2017,
+    "title": "Doom 3 - Phobos"
+  },
+  "doom_i_enhanced": {
+    "franchise": "Doom",
+    "year": 1993,
+    "title": "Doom 1 Enhanced"
+  },
+  "doom_ii_enhanced": {
+    "franchise": "Doom",
+    "year": 1994,
+    "title": "Doom 2 Enhanced"
+  },
+  "doom_ii_master_levels_game": {
+    "franchise": "Doom",
+    "year": 1995,
+    "title": "Doom 2 + Master Levels"
+  },
+  "dungeon_hack": {
+    "franchise": "D&D Computer RPGs",
+    "year": 1993
+  },
+  "dungeons_dragons_dragonshard": {
+    "franchise": "D&D Computer RPGs",
+    "year": 2005,
+    "title": "Dungeons & Dragons - Dragonshard"
+  },
+  "elder_scrolls_iv_oblivion_game_of_the_year_edition_deluxe_the_game": {
+    "franchise": "The Elder Scrolls",
+    "year": 2006,
+    "title": "The Elder Scrolls 4 - Oblivion GOTY Deluxe"
+  },
+  "enderal_forgotten_stories": {
+    "franchise": "The Elder Scrolls",
+    "year": 2019,
+    "title": "Enderal - Forgotten Stories"
+  },
+  "escape_from_monkey_island": {
+    "franchise": "Monkey Island",
+    "year": 2000
+  },
+  "fallout_2_classic": {
+    "franchise": "Fallout",
+    "year": 1998
+  },
+  "fallout_2_game": {
+    "franchise": "Fallout",
+    "year": 1998,
+    "title": "Fallout 2"
+  },
+  "fallout_3_game_of_the_year_edition_game": {
+    "franchise": "Fallout",
+    "year": 2008,
+    "title": "Fallout 3 - GOTY"
+  },
+  "fallout_4_game_of_the_year_edition": {
+    "franchise": "Fallout",
+    "year": 2015,
+    "title": "Fallout 4 - GOTY"
+  },
+  "fallout_classic": {
+    "franchise": "Fallout",
+    "year": 1997
+  },
+  "fallout_game": {
+    "franchise": "Fallout",
+    "year": 1997,
+    "title": "Fallout"
+  },
+  "fallout_london": {
+    "franchise": "Fallout",
+    "year": 2024
+  },
+  "fallout_london_oneclick_edition": {
+    "franchise": "Fallout",
+    "year": 2024,
+    "title": "Fallout - London One-click Edition"
+  },
+  "fallout_new_vegas_ultimate_edition_game": {
+    "franchise": "Fallout",
+    "year": 2010,
+    "title": "Fallout - New Vegas Ultimate"
+  },
+  "fallout_tactics_classic": {
+    "franchise": "Fallout",
+    "year": 2001
+  },
+  "fallout_tactics_game": {
+    "franchise": "Fallout",
+    "year": 2001,
+    "title": "Fallout Tactics"
+  },
+  "final_doom_game": {
+    "franchise": "Doom",
+    "year": 1996,
+    "title": "Final Doom"
+  },
+  "forgotten_realms_unlimited_adventures": {
+    "franchise": "Forgotten Realms (Gold Box)",
+    "year": 1993,
+    "title": "Forgotten Realms - Unlimited Adventures"
+  },
+  "full_throttle_remastered": {
+    "franchise": "LucasArts Adventures",
+    "year": 1995,
+    "title": "Full Throttle"
+  },
+  "gateway_to_the_savage_frontier": {
+    "franchise": "Forgotten Realms (Gold Box)",
+    "year": 1991
+  },
+  "grim_fandango_remastered": {
+    "franchise": "LucasArts Adventures",
+    "year": 1998,
+    "title": "Grim Fandango"
+  },
+  "gwent_the_witcher_card_game": {
+    "franchise": "The Witcher",
+    "year": 2018,
+    "title": "Gwent - The Witcher Card Game"
+  },
+  "heritage_of_kings_the_settlers": {
+    "franchise": "The Settlers",
+    "year": 2004,
+    "title": "Heritage of Kings - The Settlers"
+  },
+  "heroes_chronicles_chapter_1_warlords_of_the_wasteland": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 1999,
+    "title": "Heroes Chronicles 1 - Warlords of the Wasteland"
+  },
+  "heroes_chronicles_chapter_2_conquest_of_the_underworld": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 2000,
+    "title": "Heroes Chronicles 2 - Conquest of the Underworld"
+  },
+  "heroes_chronicles_chapter_3_masters_of_the_elements": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 2000,
+    "title": "Heroes Chronicles 3 - Masters of the Elements"
+  },
+  "heroes_chronicles_chapter_4_clash_of_the_dragons": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 2000,
+    "title": "Heroes Chronicles 4 - Clash of the Dragons"
+  },
+  "heroes_chronicles_chapter_5_the_world_tree": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 2000,
+    "title": "Heroes Chronicles 5 - The World Tree"
+  },
+  "heroes_chronicles_chapter_6_the_fiery_moon": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 2000,
+    "title": "Heroes Chronicles 6 - The Fiery Moon"
+  },
+  "heroes_chronicles_chapter_7_revolt_of_the_beastmasters": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 2000,
+    "title": "Heroes Chronicles 7 - Revolt of the Beastmasters"
+  },
+  "heroes_chronicles_chapter_8_the_sword_of_frost": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 2000,
+    "title": "Heroes Chronicles 8 - The Sword of Frost"
+  },
+  "heroes_of_might_and_magic": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 1995,
+    "title": "Heroes of Might and Magic"
+  },
+  "heroes_of_might_and_magic_2_gold_edition": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 1996,
+    "title": "Heroes of Might and Magic 2 - Gold"
+  },
+  "heroes_of_might_and_magic_3_complete_edition": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 1999,
+    "title": "Heroes of Might and Magic 3 - Complete"
+  },
+  "heroes_of_might_and_magic_4_complete": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 2002,
+    "title": "Heroes of Might and Magic 4 - Complete"
+  },
+  "heroes_of_might_and_magic_iii_horn_of_the_abyss": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 1999,
+    "title": "Heroes of Might and Magic 3 - Horn of the Abyss"
+  },
+  "heroes_of_might_and_magic_v": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 2006,
+    "title": "Heroes of Might and Magic 5"
+  },
+  "heroes_of_might_and_magic_v_tribes_of_the_east": {
+    "franchise": "Heroes of Might and Magic",
+    "year": 2007,
+    "title": "Heroes of Might and Magic 5 - Tribes of the East"
+  },
+  "heroines_quest_the_herald_of_ragnarok": {
+    "franchise": "Quest for Glory",
+    "year": 2014
+  },
+  "hillsfar_copy3": {
+    "franchise": "Forgotten Realms (Gold Box)",
+    "year": 1989,
+    "title": "Hillsfar"
+  },
+  "kings_quest": {
+    "franchise": "King's Quest",
+    "year": 1984,
+    "title": "King's Quest 1"
+  },
+  "kings_quest_2_romancing_the_throne": {
+    "franchise": "King's Quest",
+    "year": 1985,
+    "title": "King's Quest 2 - Romancing the Throne"
+  },
+  "kings_quest_3_to_heir_is_human": {
+    "franchise": "King's Quest",
+    "year": 1986,
+    "title": "King's Quest 3 - To Heir Is Human"
+  },
+  "kings_quest_4_the_perils_of_rosella": {
+    "franchise": "King's Quest",
+    "year": 1988,
+    "title": "King's Quest 4 - The Perils of Rosella"
+  },
+  "kings_quest_5_absence_makes_the_heart_go_yonder": {
+    "franchise": "King's Quest",
+    "year": 1990,
+    "title": "King's Quest 5 - Absence Makes the Heart Go Yonder"
+  },
+  "kings_quest_6_heir_today_gone_tomorrow": {
+    "franchise": "King's Quest",
+    "year": 1992,
+    "title": "King's Quest 6 - Heir Today, Gone Tomorrow"
+  },
+  "kings_quest_7_the_princeless_bride": {
+    "franchise": "King's Quest",
+    "year": 1994,
+    "title": "King's Quest 7 - The Princeless Bride"
+  },
+  "kings_quest_8_mask_of_eternity": {
+    "franchise": "King's Quest",
+    "year": 1998,
+    "title": "King's Quest 8 - Mask of Eternity"
+  },
+  "lego_star_wars_the_complete_saga": {
+    "franchise": "Star Wars",
+    "year": 2007,
+    "title": "LEGO Star Wars - The Complete Saga"
+  },
+  "leisure_suit_larry_1_in_the_land_of_the_lounge_lizards": {
+    "franchise": "Leisure Suit Larry",
+    "year": 1987,
+    "title": "Leisure Suit Larry 1 - In the Land of the Lounge Lizards"
+  },
+  "leisure_suit_larry_1_vga_in_the_land_of_the_lounge_lizards": {
+    "franchise": "Leisure Suit Larry",
+    "year": 1991,
+    "title": "Leisure Suit Larry 1 (VGA) - In the Land of the Lounge Lizards"
+  },
+  "leisure_suit_larry_2_looking_for_love_in_several_wrong_places": {
+    "franchise": "Leisure Suit Larry",
+    "year": 1988,
+    "title": "Leisure Suit Larry 2 - Looking For Love"
+  },
+  "leisure_suit_larry_3_passionate_patti_in_pursuit_of_the_pulsating_pectorals": {
+    "franchise": "Leisure Suit Larry",
+    "year": 1989,
+    "title": "Leisure Suit Larry 3 - Passionate Patti"
+  },
+  "leisure_suit_larry_5_passionate_patti_does_a_little_undercover_work": {
+    "franchise": "Leisure Suit Larry",
+    "year": 1991,
+    "title": "Leisure Suit Larry 5 - Passionate Patti Does a Little Undercover Work"
+  },
+  "leisure_suit_larry_6_shape_up_or_slip_out": {
+    "franchise": "Leisure Suit Larry",
+    "year": 1993,
+    "title": "Leisure Suit Larry 6 - Shape Up Or Slip Out"
+  },
+  "leisure_suit_larry_6_vga_shape_up_or_slip_out": {
+    "franchise": "Leisure Suit Larry",
+    "year": 1994,
+    "title": "Leisure Suit Larry 6 (VGA) - Shape Up Or Slip Out"
+  },
+  "leisure_suit_larry_love_for_sail": {
+    "franchise": "Leisure Suit Larry",
+    "year": 1996,
+    "title": "Leisure Suit Larry 7 - Love for Sail"
+  },
+  "leisure_suit_larry_magna_cum_laude_uncut_and_uncensored": {
+    "franchise": "Leisure Suit Larry",
+    "year": 2004,
+    "title": "Leisure Suit Larry - Magna Cum Laude"
+  },
+  "leisure_suit_larry_reloaded": {
+    "franchise": "Leisure Suit Larry",
+    "year": 2013,
+    "title": "Leisure Suit Larry - Reloaded"
+  },
+  "leisure_suit_larry_wet_dreams_dont_dry": {
+    "franchise": "Leisure Suit Larry",
+    "year": 2018,
+    "title": "Leisure Suit Larry - Wet Dreams Don't Dry"
+  },
+  "leisure_suit_larry_wet_dreams_dry_twice": {
+    "franchise": "Leisure Suit Larry",
+    "year": 2020,
+    "title": "Leisure Suit Larry - Wet Dreams Dry Twice"
+  },
+  "loom": {
+    "franchise": "LucasArts Adventures",
+    "year": 1990
+  },
+  "might_and_magic_1_book_i": {
+    "franchise": "Might and Magic",
+    "year": 1986,
+    "title": "Might and Magic 1 - Book I"
+  },
+  "might_and_magic_2_gates_to_another_world": {
+    "franchise": "Might and Magic",
+    "year": 1988,
+    "title": "Might and Magic 2 - Gates to Another World"
+  },
+  "might_and_magic_3_isles_of_terra": {
+    "franchise": "Might and Magic",
+    "year": 1991,
+    "title": "Might and Magic 3 - Isles of Terra"
+  },
+  "might_and_magic_45_world_of_xeen": {
+    "franchise": "Might and Magic",
+    "year": 1992,
+    "title": "Might and Magic 4-5 - World of Xeen"
+  },
+  "might_and_magic_6_the_mandate_of_heaven": {
+    "franchise": "Might and Magic",
+    "year": 1998,
+    "title": "Might and Magic 6 - The Mandate of Heaven"
+  },
+  "might_and_magic_7_for_blood_and_honor": {
+    "franchise": "Might and Magic",
+    "year": 1999,
+    "title": "Might and Magic 7 - For Blood and Honor"
+  },
+  "might_and_magic_8_day_of_the_destroyer": {
+    "franchise": "Might and Magic",
+    "year": 2000,
+    "title": "Might and Magic 8 - Day of the Destroyer"
+  },
+  "might_and_magic_9": {
+    "franchise": "Might and Magic",
+    "year": 2002
+  },
+  "might_and_magic_swords_of_xeen": {
+    "franchise": "Might and Magic",
+    "year": 1995,
+    "title": "Might and Magic - Swords of Xeen"
+  },
+  "monkey_island_2_special_edition_lechucks_revenge": {
+    "franchise": "Monkey Island",
+    "year": 1991,
+    "title": "Monkey Island 2 - LeChuck's Revenge"
+  },
+  "mordheim_city_of_the_damned": {
+    "franchise": "Warhammer",
+    "year": 2015,
+    "title": "Mordheim - City of the Damned"
+  },
+  "myst_3_exile": {
+    "franchise": "Myst",
+    "year": 2001
+  },
+  "myst_4": {
+    "franchise": "Myst",
+    "year": 2004,
+    "title": "Myst 4 - Revelation"
+  },
+  "myst_5_end_of_ages": {
+    "franchise": "Myst",
+    "year": 2005,
+    "title": "Myst 5 - End of Ages"
+  },
+  "myst_masterpiece_edition": {
+    "franchise": "Myst",
+    "year": 1993,
+    "title": "Myst Masterpiece"
+  },
+  "necromunda_hired_gun": {
+    "franchise": "Warhammer",
+    "year": 2021,
+    "title": "Necromunda - Hired Gun"
+  },
+  "nehrim_at_fates_edge": {
+    "franchise": "The Elder Scrolls",
+    "year": 2010,
+    "title": "Nehrim - At Fate's Edge"
+  },
+  "obduction": {
+    "franchise": "Myst",
+    "year": 2016
+  },
+  "police_quest_2_vengeance": {
+    "franchise": "Police Quest",
+    "year": 1988,
+    "title": "Police Quest 2 - Vengeance"
+  },
+  "police_quest_3_the_kindred": {
+    "franchise": "Police Quest",
+    "year": 1991,
+    "title": "Police Quest 3 - The Kindred"
+  },
+  "police_quest_4_open_season": {
+    "franchise": "Police Quest",
+    "year": 1993,
+    "title": "Police Quest 4 - Open Season"
+  },
+  "police_quest_in_pursuit_of_the_death_angel": {
+    "franchise": "Police Quest",
+    "year": 1987,
+    "title": "Police Quest 1 - In Pursuit of the Death Angel"
+  },
+  "police_quest_swat": {
+    "franchise": "Police Quest",
+    "year": 1995,
+    "title": "Police Quest - SWAT"
+  },
+  "police_quest_swat_2": {
+    "franchise": "Police Quest",
+    "year": 1998,
+    "title": "Police Quest - SWAT 2"
+  },
+  "pool_of_radiance": {
+    "franchise": "Forgotten Realms (Gold Box)",
+    "year": 1988
+  },
+  "pools_of_darkness": {
+    "franchise": "Forgotten Realms (Gold Box)",
+    "year": 1991
+  },
+  "quake_4_game": {
+    "franchise": "Quake",
+    "year": 2005,
+    "title": "Quake 4"
+  },
+  "quake_enhanced": {
+    "franchise": "Quake",
+    "year": 1996,
+    "title": "Quake Enhanced"
+  },
+  "quake_ii": {
+    "franchise": "Quake",
+    "year": 1997,
+    "title": "Quake 2"
+  },
+  "quake_ii_quad_damage_game": {
+    "franchise": "Quake",
+    "year": 1997,
+    "title": "Quake 2 - Quad Damage"
+  },
+  "quake_ii_rtx": {
+    "franchise": "Quake",
+    "year": 1997,
+    "title": "Quake 2 - RTX"
+  },
+  "quake_iii_arena_and_team_arena": {
+    "franchise": "Quake",
+    "year": 1999,
+    "title": "Quake 3 Arena + Team Arena"
+  },
+  "quake_the_offering_game": {
+    "franchise": "Quake",
+    "year": 1996,
+    "title": "Quake"
+  },
+  "quest_for_glory_2": {
+    "franchise": "Quest for Glory",
+    "year": 1990
+  },
+  "quest_for_glory_3": {
+    "franchise": "Quest for Glory",
+    "year": 1992
+  },
+  "quest_for_glory_4": {
+    "franchise": "Quest for Glory",
+    "year": 1993
+  },
+  "quest_for_glory_5": {
+    "franchise": "Quest for Glory",
+    "year": 1998
+  },
+  "quest_for_glory_vga_remake": {
+    "franchise": "Quest for Glory",
+    "year": 1989,
+    "title": "Quest for Glory 1"
+  },
+  "quest_for_infamy": {
+    "franchise": "Quest for Glory",
+    "year": 2014
+  },
+  "real_myst": {
+    "franchise": "Myst",
+    "year": 2000,
+    "title": "realMYST"
+  },
+  "real_myst_masterpiece_edition": {
+    "franchise": "Myst",
+    "year": 2014,
+    "title": "realMyst Masterpiece"
+  },
+  "realrtcw": {
+    "franchise": "Wolfenstein",
+    "year": 2018,
+    "title": "RealRTCW"
+  },
+  "return_to_castle_wolfenstein_game": {
+    "franchise": "Wolfenstein",
+    "year": 2001,
+    "title": "Return to Castle Wolfenstein"
+  },
+  "rise_of_the_tomb_raider_20_year_celebration": {
+    "franchise": "Tomb Raider",
+    "year": 2015,
+    "title": "Rise of the Tomb Raider - 20 Year Celebration"
+  },
+  "riven_the_sequel_to_myst": {
+    "franchise": "Myst",
+    "year": 1997,
+    "title": "Riven"
+  },
+  "secret_of_the_silver_blades": {
+    "franchise": "Forgotten Realms (Gold Box)",
+    "year": 1990
+  },
+  "shadow_of_the_tomb_raider_definitive_edition": {
+    "franchise": "Tomb Raider",
+    "year": 2018,
+    "title": "Shadow of the Tomb Raider - Definitive"
+  },
+  "softporn_adventure": {
+    "franchise": "Leisure Suit Larry",
+    "year": 1981
+  },
+  "space_hulk_deathwing_enhanced_edition": {
+    "franchise": "Warhammer",
+    "year": 2016,
+    "title": "Space Hulk - Deathwing Enhanced"
+  },
+  "space_quest_1_the_sarien_encounter": {
+    "franchise": "Space Quest",
+    "year": 1986,
+    "title": "Space Quest 1 - The Sarien Encounter"
+  },
+  "space_quest_2_vohauls_revenge": {
+    "franchise": "Space Quest",
+    "year": 1987,
+    "title": "Space Quest 2 - Vohaul's Revenge"
+  },
+  "space_quest_3_the_pirates_of_pestulon": {
+    "franchise": "Space Quest",
+    "year": 1989,
+    "title": "Space Quest 3 - The Pirates of Pestulon"
+  },
+  "space_quest_4_roger_wilco_and_the_time_rippers": {
+    "franchise": "Space Quest",
+    "year": 1991,
+    "title": "Space Quest 4 - Roger Wilco and the Time Rippers"
+  },
+  "space_quest_5_the_next_mutation": {
+    "franchise": "Space Quest",
+    "year": 1993,
+    "title": "Space Quest 5 - The Next Mutation"
+  },
+  "space_quest_6_roger_wilco_in_the_spinal_frontier": {
+    "franchise": "Space Quest",
+    "year": 1995,
+    "title": "Space Quest 6 - Roger Wilco in the Spinal Frontier"
+  },
+  "stalker_anomaly": {
+    "franchise": "S.T.A.L.K.E.R.",
+    "year": 2018,
+    "title": "S.T.A.L.K.E.R. Anomaly"
+  },
+  "stalker_call_of_pripyat_base": {
+    "franchise": "S.T.A.L.K.E.R.",
+    "year": 2009,
+    "title": "S.T.A.L.K.E.R. - Call of Pripyat"
+  },
+  "stalker_call_of_prypiat_enhanced_edition_base": {
+    "franchise": "S.T.A.L.K.E.R.",
+    "year": 2009,
+    "title": "S.T.A.L.K.E.R. - Call of Prypiat Enhanced"
+  },
+  "stalker_clear_sky_base": {
+    "franchise": "S.T.A.L.K.E.R.",
+    "year": 2008,
+    "title": "S.T.A.L.K.E.R. - Clear Sky"
+  },
+  "stalker_clear_sky_enhanced_edition_base": {
+    "franchise": "S.T.A.L.K.E.R.",
+    "year": 2008,
+    "title": "S.T.A.L.K.E.R. - Clear Sky Enhanced"
+  },
+  "stalker_shadow_of_chernobyl_base": {
+    "franchise": "S.T.A.L.K.E.R.",
+    "year": 2007,
+    "title": "S.T.A.L.K.E.R. - Shadow of Chernobyl"
+  },
+  "stalker_shadow_of_chornobyl_enhanced_edition_base": {
+    "franchise": "S.T.A.L.K.E.R.",
+    "year": 2007,
+    "title": "S.T.A.L.K.E.R. - Shadow of Chornobyl Enhanced"
+  },
+  "star_wars_battlefront": {
+    "franchise": "Star Wars",
+    "year": 2004,
+    "title": "Star Wars - Battlefront (Classic 2004)"
+  },
+  "star_wars_battlefront_ii": {
+    "franchise": "Star Wars",
+    "year": 2005,
+    "title": "Star Wars - Battlefront 2 (Classic 2005)"
+  },
+  "star_wars_bounty_hunter": {
+    "franchise": "Star Wars",
+    "year": 2002,
+    "title": "Star Wars - Bounty Hunter"
+  },
+  "star_wars_dark_forces": {
+    "franchise": "Star Wars",
+    "year": 1995,
+    "title": "Star Wars - Dark Forces"
+  },
+  "star_wars_empire_at_war_gold_pack": {
+    "franchise": "Star Wars",
+    "year": 2006,
+    "title": "Star Wars - Empire at War Gold Pack"
+  },
+  "star_wars_episode_i_racer": {
+    "franchise": "Star Wars",
+    "year": 1999,
+    "title": "Star Wars - Episode 1 Racer"
+  },
+  "star_wars_galactic_battlegrounds_saga": {
+    "franchise": "Star Wars",
+    "year": 2001,
+    "title": "Star Wars - Galactic Battlegrounds Saga"
+  },
+  "star_wars_jedi_knight_dark_forces_ii_game": {
+    "franchise": "Star Wars",
+    "year": 1997,
+    "title": "Star Wars - Jedi Knight - Dark Forces 2"
+  },
+  "star_wars_jedi_knight_dark_forces_ii_mysteries_of_the_sith": {
+    "franchise": "Star Wars",
+    "year": 1998,
+    "title": "Star Wars - Jedi Knight - Mysteries of the Sith"
+  },
+  "star_wars_jedi_knight_ii_jedi_outcast": {
+    "franchise": "Star Wars",
+    "year": 2002,
+    "title": "Star Wars - Jedi Knight 2 - Jedi Outcast"
+  },
+  "star_wars_jedi_knight_jedi_academy": {
+    "franchise": "Star Wars",
+    "year": 2003,
+    "title": "Star Wars - Jedi Knight - Jedi Academy"
+  },
+  "star_wars_knights_of_the_old_republic": {
+    "franchise": "Star Wars",
+    "year": 2003,
+    "title": "Star Wars - Knights of the Old Republic"
+  },
+  "star_wars_knights_of_the_old_republic_ii_the_sith_lords": {
+    "franchise": "Star Wars",
+    "year": 2004,
+    "title": "Star Wars - Knights of the Old Republic 2 - The Sith Lords"
+  },
+  "star_wars_rebellion": {
+    "franchise": "Star Wars",
+    "year": 1998,
+    "title": "Star Wars - Rebellion"
+  },
+  "star_wars_republic_commando": {
+    "franchise": "Star Wars",
+    "year": 2005,
+    "title": "Star Wars - Republic Commando"
+  },
+  "star_wars_rogue_squadron_3d": {
+    "franchise": "Star Wars",
+    "year": 1998,
+    "title": "Star Wars - Rogue Squadron 3D"
+  },
+  "star_wars_shadows_of_the_empire": {
+    "franchise": "Star Wars",
+    "year": 1996,
+    "title": "Star Wars - Shadows of the Empire"
+  },
+  "star_wars_starfighter": {
+    "franchise": "Star Wars",
+    "year": 2003,
+    "title": "Star Wars - Starfighter"
+  },
+  "swat_3_tactical_game_of_the_year_edition": {
+    "franchise": "Police Quest",
+    "year": 1999,
+    "title": "SWAT 3 - Tactical Game of the Year"
+  },
+  "swat_4_gold_edition": {
+    "franchise": "Police Quest",
+    "year": 2005,
+    "title": "SWAT 4 Gold"
+  },
+  "swat_elite_force": {
+    "franchise": "Police Quest",
+    "year": 2018,
+    "title": "SWAT - Elite Force"
+  },
+  "tales_of_monkey_island": {
+    "franchise": "Monkey Island",
+    "year": 2009
+  },
+  "the_curse_of_monkey_island": {
+    "franchise": "Monkey Island",
+    "year": 1997
+  },
+  "the_dig": {
+    "franchise": "LucasArts Adventures",
+    "year": 1995
+  },
+  "the_elder_scrolls_arena": {
+    "franchise": "The Elder Scrolls",
+    "year": 1994
+  },
+  "the_elder_scrolls_chapter_ii_daggerfall": {
+    "franchise": "The Elder Scrolls",
+    "year": 1996,
+    "title": "The Elder Scrolls 2 - Daggerfall"
+  },
+  "the_elder_scrolls_iii_morrowind_goty_edition_game": {
+    "franchise": "The Elder Scrolls",
+    "year": 2002,
+    "title": "The Elder Scrolls 3 - Morrowind GOTY"
+  },
+  "the_elder_scrolls_v_skyrim_special_edition": {
+    "franchise": "The Elder Scrolls",
+    "year": 2011,
+    "title": "The Elder Scrolls 5 - Skyrim Special Edition"
+  },
+  "the_secret_of_monkey_island_special_edition": {
+    "franchise": "Monkey Island",
+    "year": 1990,
+    "title": "The Secret of Monkey Island"
+  },
+  "the_settlers_2_10th_anniversary": {
+    "franchise": "The Settlers",
+    "year": 2006,
+    "title": "The Settlers 2 - 10th Anniversary"
+  },
+  "the_settlers_2_gold_edition": {
+    "franchise": "The Settlers",
+    "year": 1996,
+    "title": "The Settlers 2 - Gold Edition"
+  },
+  "the_settlers_3_ultimate_collection": {
+    "franchise": "The Settlers",
+    "year": 1998,
+    "title": "The Settlers 3 - Ultimate Collection"
+  },
+  "the_settlers_4_gold_edition": {
+    "franchise": "The Settlers",
+    "year": 2001,
+    "title": "The Settlers 4 - Gold Edition"
+  },
+  "the_settlers_rise_of_an_empire_gold_edition": {
+    "franchise": "The Settlers",
+    "year": 2007,
+    "title": "The Settlers - Rise of an Empire Gold"
+  },
+  "the_temple_of_elemental_evil": {
+    "franchise": "D&D Computer RPGs",
+    "year": 2003
+  },
+  "the_ultimate_doom_game": {
+    "franchise": "Doom",
+    "year": 1993,
+    "title": "The Ultimate Doom"
+  },
+  "the_witcher": {
+    "franchise": "The Witcher",
+    "year": 2007,
+    "title": "The Witcher - Enhanced Edition"
+  },
+  "the_witcher_2": {
+    "franchise": "The Witcher",
+    "year": 2011,
+    "title": "The Witcher 2 - Assassins of Kings"
+  },
+  "the_witcher_3_wild_hunt_game": {
+    "franchise": "The Witcher",
+    "year": 2015,
+    "title": "The Witcher 3 - Wild Hunt"
+  },
+  "the_witcher_3_wild_hunt_game_of_the_year_edition_game": {
+    "franchise": "The Witcher",
+    "year": 2015,
+    "title": "The Witcher 3 - Wild Hunt Complete Edition"
+  },
+  "thronebreaker_the_witcher_tales": {
+    "franchise": "The Witcher",
+    "year": 2018,
+    "title": "Thronebreaker - The Witcher Tales"
+  },
+  "thunderscape": {
+    "franchise": "D&D Computer RPGs",
+    "year": 1995,
+    "title": "World of Aden - Thunderscape"
+  },
+  "tomb_raider_1": {
+    "franchise": "Tomb Raider",
+    "year": 1996
+  },
+  "tomb_raider_2": {
+    "franchise": "Tomb Raider",
+    "year": 1997
+  },
+  "tomb_raider_3": {
+    "franchise": "Tomb Raider",
+    "year": 1998
+  },
+  "tomb_raider_anniversary": {
+    "franchise": "Tomb Raider",
+    "year": 2007
+  },
+  "tomb_raider_chronicles": {
+    "franchise": "Tomb Raider",
+    "year": 2000,
+    "title": "Tomb Raider 5 - Chronicles"
+  },
+  "tomb_raider_goty": {
+    "franchise": "Tomb Raider",
+    "year": 2013,
+    "title": "Tomb Raider GOTY (2013)"
+  },
+  "tomb_raider_i_to_iii_remastered": {
+    "franchise": "Tomb Raider",
+    "year": 2024,
+    "title": "Tomb Raider I-III Remastered"
+  },
+  "tomb_raider_legend": {
+    "franchise": "Tomb Raider",
+    "year": 2006
+  },
+  "tomb_raider_the_angel_of_darkness": {
+    "franchise": "Tomb Raider",
+    "year": 2003,
+    "title": "Tomb Raider 6 - The Angel of Darkness"
+  },
+  "tomb_raider_the_last_revelation": {
+    "franchise": "Tomb Raider",
+    "year": 1999,
+    "title": "Tomb Raider 4 - The Last Revelation"
+  },
+  "tomb_raider_underworld": {
+    "franchise": "Tomb Raider",
+    "year": 2008
+  },
+  "treasures_of_the_savage_frontier": {
+    "franchise": "Forgotten Realms (Gold Box)",
+    "year": 1992
+  },
+  "ultima_1": {
+    "franchise": "Ultima",
+    "year": 1981,
+    "title": "Ultima 1"
+  },
+  "ultima_2": {
+    "franchise": "Ultima",
+    "year": 1982,
+    "title": "Ultima 2"
+  },
+  "ultima_3": {
+    "franchise": "Ultima",
+    "year": 1983,
+    "title": "Ultima 3"
+  },
+  "ultima_8_gold_edition": {
+    "franchise": "Ultima",
+    "year": 1994,
+    "title": "Ultima 8 Gold"
+  },
+  "ultima_9_ascension": {
+    "franchise": "Ultima",
+    "year": 1999,
+    "title": "Ultima 9 - Ascension"
+  },
+  "ultima_iv": {
+    "franchise": "Ultima",
+    "year": 1985,
+    "title": "Ultima 4"
+  },
+  "ultima_iv_quest_of_the_avatar": {
+    "franchise": "Ultima",
+    "year": 1985,
+    "title": "Ultima 4 - Quest of the Avatar"
+  },
+  "ultima_underworld_1": {
+    "franchise": "Ultima",
+    "year": 1992,
+    "title": "Ultima Underworld 1"
+  },
+  "ultima_underworld_2": {
+    "franchise": "Ultima",
+    "year": 1993,
+    "title": "Ultima Underworld 2"
+  },
+  "ultima_v": {
+    "franchise": "Ultima",
+    "year": 1988,
+    "title": "Ultima 5"
+  },
+  "ultima_vi": {
+    "franchise": "Ultima",
+    "year": 1990,
+    "title": "Ultima 6"
+  },
+  "ultima_vii_serpent_isle": {
+    "franchise": "Ultima",
+    "year": 1993,
+    "title": "Ultima 7 - Serpent Isle + The Silver Seed"
+  },
+  "ultima_vii_the_black_gate_the_forge_of_virtue": {
+    "franchise": "Ultima",
+    "year": 1992,
+    "title": "Ultima 7 - The Black Gate + Forge of Virtue"
+  },
+  "ultima_worlds_of_adventure_2_martian_dreams": {
+    "franchise": "Ultima",
+    "year": 1991,
+    "title": "Ultima Worlds of Adventure 2 - Martian Dreams"
+  },
+  "uru_complete_chronicles": {
+    "franchise": "Myst",
+    "year": 2003,
+    "title": "Uru - Complete Chronicles"
+  },
+  "warhammer_40000_chaos_gate": {
+    "franchise": "Warhammer",
+    "year": 1998
+  },
+  "warhammer_40000_dawn_of_war_dark_crusade": {
+    "franchise": "Warhammer",
+    "year": 2006,
+    "title": "Dawn of War - Dark Crusade"
+  },
+  "warhammer_40000_dawn_of_war_game": {
+    "franchise": "Warhammer",
+    "year": 2004,
+    "title": "Dawn of War - Anniversary"
+  },
+  "warhammer_40000_dawn_of_war_ii_retribution": {
+    "franchise": "Warhammer",
+    "year": 2011,
+    "title": "Dawn of War 2 - Retribution"
+  },
+  "warhammer_40000_dawn_of_war_soulstorm": {
+    "franchise": "Warhammer",
+    "year": 2008,
+    "title": "Dawn of War - Soulstorm"
+  },
+  "warhammer_40000_dawn_of_war_winter_assault": {
+    "franchise": "Warhammer",
+    "year": 2005,
+    "title": "Dawn of War - Winter Assault"
+  },
+  "warhammer_40000_fire_warrior": {
+    "franchise": "Warhammer",
+    "year": 2003
+  },
+  "warhammer_40000_rites_of_war": {
+    "franchise": "Warhammer",
+    "year": 1999
+  },
+  "warhammer_40000_space_marine": {
+    "franchise": "Warhammer",
+    "year": 2011
+  },
+  "warhammer_skulls_2022_digital_goodie_pack_goodies": {
+    "franchise": "Warhammer",
+    "year": 2022,
+    "title": "Warhammer Skulls 2022 Digital Goodie Pack"
+  },
+  "witcher_adventure_game": {
+    "franchise": "The Witcher",
+    "year": 2014,
+    "title": "The Witcher Adventure Game"
+  },
+  "wolfenstein3d": {
+    "franchise": "Wolfenstein",
+    "year": 1992,
+    "title": "Wolfenstein 3D"
+  },
+  "wolfenstein_3d_game": {
+    "franchise": "Wolfenstein",
+    "year": 1992,
+    "title": "Wolfenstein 3D"
+  },
+  "wolfenstein_enemy_territory": {
+    "franchise": "Wolfenstein",
+    "year": 2003
+  },
+  "wolfenstein_spear_of_destiny": {
+    "franchise": "Wolfenstein",
+    "year": 1992,
+    "title": "Wolfenstein - Spear of Destiny"
+  },
+  "wolfenstein_the_new_order": {
+    "franchise": "Wolfenstein",
+    "year": 2014,
+    "title": "Wolfenstein - The New Order"
+  },
+  "worlds_of_ultima_the_savage_empire": {
+    "franchise": "Ultima",
+    "year": 1990,
+    "title": "Worlds of Ultima - The Savage Empire"
+  },
+  "worms_2": {
+    "franchise": "Worms",
+    "year": 1997
+  },
+  "worms_armageddon": {
+    "franchise": "Worms",
+    "year": 1999
+  },
+  "worms_crazy_golf": {
+    "franchise": "Worms",
+    "year": 2011
+  },
+  "worms_forts_under_siege": {
+    "franchise": "Worms",
+    "year": 2004,
+    "title": "Worms Forts - Under Siege"
+  },
+  "worms_revolution": {
+    "franchise": "Worms",
+    "year": 2012,
+    "title": "Worms Revolution Gold"
+  },
+  "worms_ultimate_mayhem_deluxe_edition": {
+    "franchise": "Worms",
+    "year": 2011,
+    "title": "Worms Ultimate Mayhem Deluxe"
+  },
+  "worms_united": {
+    "franchise": "Worms",
+    "year": 1996
+  },
+  "worms_wmd_game": {
+    "franchise": "Worms",
+    "year": 2016,
+    "title": "Worms W.M.D"
+  },
+  "worms_world_party_remastered": {
+    "franchise": "Worms",
+    "year": 2001
+  },
+  "xcom_2": {
+    "franchise": "X-COM",
+    "year": 2016,
+    "title": "XCOM 2"
+  },
+  "xcom_apocalypse": {
+    "franchise": "X-COM",
+    "year": 1997,
+    "title": "X-COM - Apocalypse"
+  },
+  "xcom_enemy_unknown_complete_pack": {
+    "franchise": "X-COM",
+    "year": 2012,
+    "title": "XCOM - Enemy Unknown Complete Pack"
+  },
+  "xcom_enforcer": {
+    "franchise": "X-COM",
+    "year": 2001,
+    "title": "X-COM - Enforcer"
+  },
+  "xcom_interceptor": {
+    "franchise": "X-COM",
+    "year": 1998,
+    "title": "X-COM - Interceptor"
+  },
+  "xcom_terror_from_the_deep": {
+    "franchise": "X-COM",
+    "year": 1995,
+    "title": "X-COM - Terror from the Deep"
+  },
+  "xcom_ufo_defense": {
+    "franchise": "X-COM",
+    "year": 1994,
+    "title": "X-COM - UFO Defense"
+  },
+  "xenonauts": {
+    "franchise": "X-COM",
+    "year": 2014,
+    "title": "Xenonauts (spiritual successor)"
+  },
+  "yakuza_0": {
+    "franchise": "Yakuza",
+    "year": 2015
+  },
+  "yakuza_3_remastered": {
+    "franchise": "Yakuza",
+    "year": 2009,
+    "title": "Yakuza 3 Remastered"
+  },
+  "yakuza_4_remastered": {
+    "franchise": "Yakuza",
+    "year": 2010,
+    "title": "Yakuza 4 Remastered"
+  },
+  "yakuza_5_remastered": {
+    "franchise": "Yakuza",
+    "year": 2012,
+    "title": "Yakuza 5 Remastered"
+  },
+  "yakuza_6_the_song_of_life": {
+    "franchise": "Yakuza",
+    "year": 2016,
+    "title": "Yakuza 6 - The Song of Life"
+  },
+  "yakuza_kiwami": {
+    "franchise": "Yakuza",
+    "year": 2016
+  },
+  "yakuza_kiwami_2": {
+    "franchise": "Yakuza",
+    "year": 2017,
+    "title": "Yakuza Kiwami 2"
+  },
+  "zak_mckracken_and_the_alien_mindbenders": {
+    "franchise": "LucasArts Adventures",
+    "year": 1988
+  }
+}
